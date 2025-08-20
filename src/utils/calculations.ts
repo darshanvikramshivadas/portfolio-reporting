@@ -35,7 +35,7 @@ export const calculateMTM = (securities: Security[], closingPrices: Record<strin
   });
 };
 
-export const calculatePortfolioSummary = (securities: Security[], cashBalances: CashBalance[]) => {
+export const calculatePortfolioSummary = (securities: Security[], cashBalances: CashBalance[], lastUpdated?: string) => {
   const securitiesValue = securities
     .filter(s => s.type !== 'FUTURES')
     .reduce((sum, security) => sum + security.currentValue, 0);
@@ -69,7 +69,7 @@ export const calculatePortfolioSummary = (securities: Security[], cashBalances: 
     availableMargin,
     marginUtilizationPercent,
     unrealizedPnL: totalGainLoss,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: lastUpdated || new Date().toISOString()
   };
 };
 
@@ -146,6 +146,30 @@ export const formatCurrency = (amount: number, currency: string = 'USD'): string
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }).format(amount);
+};
+
+export const formatDate = (date: string | Date, options?: Intl.DateTimeFormatOptions): string => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const defaultOptions: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hour12: true
+  };
+  
+  return new Intl.DateTimeFormat('en-US', { ...defaultOptions, ...options }).format(dateObj);
+};
+
+export const formatNumber = (value: number, options?: Intl.NumberFormatOptions): string => {
+  const defaultOptions: Intl.NumberFormatOptions = {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  };
+  
+  return new Intl.NumberFormat('en-US', { ...defaultOptions, ...options }).format(value);
 };
 
 export const formatPercentage = (value: number): string => {

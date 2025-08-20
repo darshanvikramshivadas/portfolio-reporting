@@ -330,7 +330,7 @@ export const mockPortfolioSummary: PortfolioSummary = {
   totalGainLossPercent: 7.18,
   cashValue: 69700.00,
   securitiesValue: 30300.00,
-  lastUpdated: new Date().toISOString(),
+  lastUpdated: '2025-01-20T19:41:50.000Z',
   futuresValue: 617000.00,
   totalMarginUsed: 36600.00,
   availableMargin: 33400.00,

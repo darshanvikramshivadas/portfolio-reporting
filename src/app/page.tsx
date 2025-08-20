@@ -17,6 +17,8 @@ import {
   calculatePortfolioSummary, 
   calculateRiskMetrics,
   formatCurrency, 
+  formatDate,
+  formatNumber,
   formatPercentage, 
   getSecurityTypeColor, 
   getGainLossColor,
@@ -72,17 +74,19 @@ export default function PortfolioDashboard() {
   });
   const [selectedContract, setSelectedContract] = useState<FuturesContract | null>(null);
 
-  useEffect(() => {
-    // Update portfolio calculations when data changes
-    const updatedSecurities = calculateMTM(securities, mockClosingPrices);
-    setSecurities(updatedSecurities);
-    
-    const summary = calculatePortfolioSummary(updatedSecurities, cashBalances);
+  // Function to recalculate portfolio metrics
+  const recalculatePortfolio = () => {
+    const summary = calculatePortfolioSummary(securities, cashBalances, portfolioSummary.lastUpdated);
     setPortfolioSummary(summary);
     
-    const metrics = calculateRiskMetrics(updatedSecurities);
+    const metrics = calculateRiskMetrics(securities);
     setRiskMetrics(metrics);
-  }, [securities, cashBalances]);
+  };
+
+  // Initial calculation on mount
+  useEffect(() => {
+    recalculatePortfolio();
+  }, []); // Empty dependency array - only run on mount
 
   const handleAddTrade = () => {
     if (newTrade.securityName && newTrade.quantity > 0 && newTrade.price > 0) {
@@ -107,6 +111,51 @@ export default function PortfolioDashboard() {
       };
 
       setTrades([...trades, trade]);
+      
+      // Update securities if this is a new security
+      const existingSecurityIndex = securities.findIndex(s => s.name === trade.securityName);
+      if (existingSecurityIndex === -1) {
+        // Add new security
+        const newSecurity: Security = {
+          id: trade.securityId,
+          name: trade.securityName,
+          type: trade.type === 'LONG_FUTURES' || trade.type === 'SHORT_FUTURES' ? 'FUTURES' : 'STOCK',
+          symbol: trade.securityName.split(' ')[0], // Simple symbol generation
+          quantity: trade.quantity,
+          buyPrice: trade.price,
+          buyValue: trade.value,
+          currentPrice: trade.price,
+          currentValue: trade.value,
+          gainLoss: 0,
+          gainLossPercent: 0,
+          buyDate: trade.date,
+          holdingPeriod: 0,
+          sector: 'Unknown',
+          country: 'US',
+          ...(trade.type === 'LONG_FUTURES' || trade.type === 'SHORT_FUTURES' ? {
+            contractSize: trade.contractSize,
+            marginRequirement: trade.marginRequirement,
+            marginUsed: trade.marginUsed,
+            positionType: trade.positionType,
+            expirationDate: trade.expirationDate,
+            tickSize: trade.tickSize,
+            tickValue: trade.tickValue
+          } : {})
+        };
+        setSecurities([...securities, newSecurity]);
+      } else {
+        // Update existing security quantity
+        const updatedSecurities = [...securities];
+        if (trade.type === 'BUY' || trade.type === 'LONG_FUTURES') {
+          updatedSecurities[existingSecurityIndex].quantity += trade.quantity;
+        } else if (trade.type === 'SELL' || trade.type === 'SHORT_FUTURES') {
+          updatedSecurities[existingSecurityIndex].quantity -= trade.quantity;
+        }
+        setSecurities(updatedSecurities);
+      }
+      
+      // Recalculate portfolio after updating securities
+      setTimeout(() => recalculatePortfolio(), 0);
       
       // Reset form
       setNewTrade({
@@ -162,7 +211,7 @@ export default function PortfolioDashboard() {
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-400">Last Updated</p>
-              <p className="text-sm font-medium text-gray-200">{new Date(portfolioSummary.lastUpdated).toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-200">{formatDate(portfolioSummary.lastUpdated)}</p>
             </div>
           </div>
         </div>
@@ -310,7 +359,7 @@ export default function PortfolioDashboard() {
                             {security.type}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{security.quantity.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatNumber(security.quantity)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(security.buyValue)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(security.currentValue)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -825,7 +874,7 @@ export default function PortfolioDashboard() {
                           {trade.type.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{trade.quantity.toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatNumber(trade.quantity)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(trade.price)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(trade.value)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(trade.commission)}</td>
