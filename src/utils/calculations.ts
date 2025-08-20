@@ -92,17 +92,17 @@ export const calculateHoldingPeriod = (buyDate: string): number => {
 
 export const getSecurityTypeColor = (type: string): string => {
   const colors: Record<string, string> = {
-    'STOCK': 'bg-blue-100 text-blue-800',
-    'BOND': 'bg-green-100 text-green-800',
-    'ETF': 'bg-purple-100 text-purple-800',
-    'MUTUAL_FUND': 'bg-orange-100 text-orange-800',
-    'OPTION': 'bg-red-100 text-red-800'
+    'STOCK': 'bg-blue-900 text-blue-300',
+    'BOND': 'bg-green-900 text-green-300',
+    'ETF': 'bg-purple-900 text-purple-300',
+    'MUTUAL_FUND': 'bg-orange-900 text-orange-300',
+    'OPTION': 'bg-red-900 text-red-300'
   };
-  return colors[type] || 'bg-gray-100 text-gray-800';
+  return colors[type] || 'bg-gray-700 text-gray-300';
 };
 
 export const getGainLossColor = (value: number): string => {
-  if (value > 0) return 'text-green-600';
-  if (value < 0) return 'text-red-600';
-  return 'text-gray-600';
+  if (value > 0) return 'text-green-400';
+  if (value < 0) return 'text-red-400';
+  return 'text-gray-400';
 };

@@ -95,24 +95,24 @@ export default function PortfolioDashboard() {
   };
 
   const getPerformanceColor = (value: number) => {
-    if (value > 0) return 'text-green-600';
-    if (value < 0) return 'text-red-600';
-    return 'text-gray-600';
+    if (value > 0) return 'text-green-400';
+    if (value < 0) return 'text-red-400';
+    return 'text-gray-400';
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-900">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-gray-800 shadow-lg border-b border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Wealth Management Portfolio</h1>
-              <p className="text-gray-600 mt-1">Client Servicing Desk - Portfolio Reporting System</p>
+              <h1 className="text-3xl font-bold text-white">Wealth Management Portfolio</h1>
+              <p className="text-gray-300 mt-1">Client Servicing Desk - Portfolio Reporting System</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-500">Last Updated</p>
-              <p className="text-sm font-medium">{new Date(portfolioSummary.lastUpdated).toLocaleString()}</p>
+              <p className="text-sm text-gray-400">Last Updated</p>
+              <p className="text-sm font-medium text-gray-200">{new Date(portfolioSummary.lastUpdated).toLocaleString()}</p>
             </div>
           </div>
         </div>
@@ -121,25 +121,25 @@ export default function PortfolioDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Portfolio Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-blue-900 rounded-lg">
+                <DollarSign className="h-6 w-6 text-blue-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Portfolio Value</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(portfolioSummary.totalValue)}</p>
+                <p className="text-sm font-medium text-gray-300">Total Portfolio Value</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.totalValue)}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+              <div className="p-2 bg-green-900 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-green-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Gain/Loss</p>
+                <p className="text-sm font-medium text-gray-300">Total Gain/Loss</p>
                 <p className={`text-2xl font-bold ${getGainLossColor(portfolioSummary.totalGainLoss)}`}>
                   {formatCurrency(portfolioSummary.totalGainLoss)} ({formatPercentage(portfolioSummary.totalGainLossPercent)})
                 </p>
@@ -147,26 +147,26 @@ export default function PortfolioDashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <PieChart className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-purple-900 rounded-lg">
+                <PieChart className="h-6 w-6 text-purple-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Securities Value</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(portfolioSummary.securitiesValue)}</p>
+                <p className="text-sm font-medium text-gray-300">Securities Value</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.securitiesValue)}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <BarChart3 className="h-6 w-6 text-orange-600" />
+              <div className="p-2 bg-orange-900 rounded-lg">
+                <BarChart3 className="h-6 w-6 text-orange-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Cash Value</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(portfolioSummary.cashValue)}</p>
+                <p className="text-sm font-medium text-gray-300">Cash Value</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.cashValue)}</p>
               </div>
             </div>
           </div>
@@ -175,31 +175,31 @@ export default function PortfolioDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Portfolio Holdings */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Portfolio Holdings</h2>
-                <p className="text-sm text-gray-600">Mark-to-Market calculations based on latest closing prices</p>
+            <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h2 className="text-lg font-medium text-white">Portfolio Holdings</h2>
+                <p className="text-sm text-gray-300">Mark-to-Market calculations based on latest closing prices</p>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Security</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Buy Value</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Value</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gain/Loss</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Holding Period</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Security</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Buy Value</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Value</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Gain/Loss</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Holding Period</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-gray-800 divide-y divide-gray-700">
                     {securities.map((security) => (
-                      <tr key={security.id} className="hover:bg-gray-50">
+                      <tr key={security.id} className="hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{security.name}</div>
-                            <div className="text-sm text-gray-500">{security.symbol}</div>
+                            <div className="text-sm font-medium text-white">{security.name}</div>
+                            <div className="text-sm text-gray-400">{security.symbol}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -207,9 +207,9 @@ export default function PortfolioDashboard() {
                             {security.type}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{security.quantity.toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(security.buyValue)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(security.currentValue)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{security.quantity.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(security.buyValue)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(security.currentValue)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className={`text-sm font-medium ${getGainLossColor(security.gainLoss)}`}>
                             {formatCurrency(security.gainLoss)}
@@ -218,7 +218,7 @@ export default function PortfolioDashboard() {
                             {formatPercentage(security.gainLossPercent)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{security.holdingPeriod} days</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{security.holdingPeriod} days</td>
                       </tr>
                     ))}
                   </tbody>
@@ -229,51 +229,51 @@ export default function PortfolioDashboard() {
 
           {/* Risk Metrics */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Risk Metrics</h2>
-                <p className="text-sm text-gray-600">Portfolio risk analysis</p>
+            <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h2 className="text-lg font-medium text-white">Risk Metrics</h2>
+                <p className="text-sm text-gray-300">Portfolio risk analysis</p>
               </div>
               <div className="p-6 space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Delta</span>
-                  <span className="text-sm font-semibold text-gray-900">{riskMetrics.delta}</span>
+                  <span className="text-sm font-medium text-gray-300">Delta</span>
+                  <span className="text-sm font-semibold text-white">{riskMetrics.delta}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Beta</span>
-                  <span className="text-sm font-semibold text-gray-900">{riskMetrics.beta.toFixed(2)}</span>
+                  <span className="text-sm font-medium text-gray-300">Beta</span>
+                  <span className="text-sm font-semibold text-white">{riskMetrics.beta.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Sharpe Ratio</span>
-                  <span className="text-sm font-semibold text-gray-900">{riskMetrics.sharpeRatio.toFixed(2)}</span>
+                  <span className="text-sm font-medium text-gray-300">Sharpe Ratio</span>
+                  <span className="text-sm font-semibold text-white">{riskMetrics.sharpeRatio.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Volatility</span>
-                  <span className="text-sm font-semibold text-gray-900">{(riskMetrics.volatility * 100).toFixed(1)}%</span>
+                  <span className="text-sm font-medium text-gray-300">Volatility</span>
+                  <span className="text-sm font-semibold text-white">{(riskMetrics.volatility * 100).toFixed(1)}%</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-600">Max Drawdown</span>
-                  <span className="text-sm font-semibold text-red-600">{(riskMetrics.maxDrawdown * 100).toFixed(1)}%</span>
+                  <span className="text-sm font-medium text-gray-300">Max Drawdown</span>
+                  <span className="text-sm font-semibold text-red-400">{(riskMetrics.maxDrawdown * 100).toFixed(1)}%</span>
                 </div>
               </div>
             </div>
 
             {/* Cash Balances */}
-            <div className="bg-white rounded-lg shadow mt-6">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Cash Balances</h2>
-                <p className="text-sm text-gray-600">Multi-currency holdings</p>
+            <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 mt-6">
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h2 className="text-lg font-medium text-white">Cash Balances</h2>
+                <p className="text-sm text-gray-300">Multi-currency holdings</p>
               </div>
               <div className="p-6 space-y-3">
                 {cashBalances.map((balance) => (
                   <div key={balance.currency} className="flex justify-between items-center">
                     <div className="flex items-center">
-                      <Globe className="h-4 w-4 text-gray-400 mr-2" />
-                      <span className="text-sm font-medium text-gray-900">{balance.currency}</span>
+                      <Globe className="h-4 w-4 text-gray-500 mr-2" />
+                      <span className="text-sm font-medium text-white">{balance.currency}</span>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-semibold text-gray-900">{formatCurrency(balance.amount, balance.currency)}</div>
-                      <div className="text-xs text-gray-500">{formatCurrency(balance.usdEquivalent)}</div>
+                      <div className="text-sm font-semibold text-white">{formatCurrency(balance.amount, balance.currency)}</div>
+                      <div className="text-xs text-gray-400">{formatCurrency(balance.usdEquivalent)}</div>
                     </div>
                   </div>
                 ))}
@@ -284,30 +284,30 @@ export default function PortfolioDashboard() {
 
         {/* Benchmark Performance */}
         <div className="mt-8">
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Benchmark Performance</h2>
-              <p className="text-sm text-gray-600">Portfolio vs. major indices</p>
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h2 className="text-lg font-medium text-white">Benchmark Performance</h2>
+              <p className="text-sm text-gray-300">Portfolio vs. major indices</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Index</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">1M</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">3M</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">6M</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">1Y</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">YTD</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Index</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">1M</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">3M</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">6M</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">1Y</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">YTD</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
                   {mockBenchmarks.map((benchmark) => (
-                    <tr key={benchmark.symbol} className="hover:bg-gray-50">
+                    <tr key={benchmark.symbol} className="hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{benchmark.name}</div>
-                          <div className="text-sm text-gray-500">{benchmark.symbol}</div>
+                          <div className="text-sm font-medium text-white">{benchmark.name}</div>
+                          <div className="text-sm text-gray-400">{benchmark.symbol}</div>
                         </div>
                       </td>
                       {Object.entries(benchmark.performance).map(([period, value]) => (
@@ -327,11 +327,11 @@ export default function PortfolioDashboard() {
 
         {/* Trade Management */}
         <div className="mt-8">
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-medium text-gray-900">Trade Management</h2>
-                <p className="text-sm text-gray-600">Add new trades with back-dated entries</p>
+                <h2 className="text-lg font-medium text-white">Trade Management</h2>
+                <p className="text-sm text-gray-300">Add new trades with back-dated entries</p>
               </div>
               <button
                 onClick={() => setShowTradeForm(!showTradeForm)}
@@ -342,77 +342,77 @@ export default function PortfolioDashboard() {
             </div>
 
             {showTradeForm && (
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-gray-700">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Security Name</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Security Name</label>
                     <input
                       type="text"
                       value={newTrade.securityName}
                       onChange={(e) => setNewTrade({...newTrade, securityName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
                       placeholder="e.g., Apple Inc."
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Type</label>
                     <select
                       value={newTrade.type}
                       onChange={(e) => setNewTrade({...newTrade, type: e.target.value as 'BUY' | 'SELL'})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
                     >
                       <option value="BUY">Buy</option>
                       <option value="SELL">Sell</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Quantity</label>
                     <input
                       type="number"
                       value={newTrade.quantity}
                       onChange={(e) => setNewTrade({...newTrade, quantity: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
                       placeholder="100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Price</label>
                     <input
                       type="number"
                       step="0.01"
                       value={newTrade.price}
                       onChange={(e) => setNewTrade({...newTrade, price: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
                       placeholder="150.00"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
                     <input
                       type="date"
                       value={newTrade.date}
                       onChange={(e) => setNewTrade({...newTrade, date: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Commission</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Commission</label>
                     <input
                       type="number"
                       step="0.01"
                       value={newTrade.commission}
                       onChange={(e) => setNewTrade({...newTrade, commission: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
                       placeholder="9.99"
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
                     <input
                       type="text"
                       value={newTrade.notes}
                       onChange={(e) => setNewTrade({...newTrade, notes: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
                       placeholder="Trade notes..."
                     />
                   </div>
@@ -429,37 +429,37 @@ export default function PortfolioDashboard() {
             )}
 
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Security</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Security</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Value</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Commission</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Notes</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
                   {trades.map((trade) => (
-                    <tr key={trade.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{trade.securityName}</td>
+                    <tr key={trade.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{trade.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{trade.securityName}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                          trade.type === 'BUY' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          trade.type === 'BUY' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
                         }`}>
                           {trade.type === 'BUY' ? <Plus className="h-3 w-3 mr-1" /> : <Minus className="h-3 w-3 mr-1" />}
                           {trade.type}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{trade.quantity.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(trade.price)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(trade.value)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatCurrency(trade.commission)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{trade.notes}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{trade.quantity.toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(trade.price)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(trade.value)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(trade.commission)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{trade.notes}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -470,72 +470,72 @@ export default function PortfolioDashboard() {
 
         {/* Integration Flowchart */}
         <div className="mt-8">
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">System Integration Flow</h2>
-              <p className="text-sm text-gray-600">Data flow from external sources to portfolio system</p>
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h2 className="text-lg font-medium text-white">System Integration Flow</h2>
+              <p className="text-sm text-gray-300">Data flow from external sources to portfolio system</p>
             </div>
             <div className="p-6">
               <div className="flex items-center justify-center space-x-8">
                 {/* External Data Sources */}
                 <div className="text-center">
-                  <div className="w-24 h-24 bg-blue-100 rounded-lg flex items-center justify-center mb-2">
-                    <Database className="h-8 w-8 text-blue-600" />
+                  <div className="w-24 h-24 bg-blue-900 rounded-lg flex items-center justify-center mb-2">
+                    <Database className="h-8 w-8 text-blue-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900">Bloomberg</p>
-                  <p className="text-xs text-gray-500">Price Feed</p>
+                  <p className="text-sm font-medium text-white">Bloomberg</p>
+                  <p className="text-xs text-gray-400">Price Feed</p>
                 </div>
 
                 <div className="flex items-center">
-                  <div className="w-16 h-0.5 bg-gray-300"></div>
-                  <Zap className="h-4 w-4 text-gray-400 mx-2" />
-                  <div className="w-16 h-0.5 bg-gray-300"></div>
+                  <div className="w-16 h-0.5 bg-gray-600"></div>
+                  <Zap className="h-4 w-4 text-gray-500 mx-2" />
+                  <div className="w-16 h-0.5 bg-gray-600"></div>
                 </div>
 
                 {/* Data Processing */}
                 <div className="text-center">
-                  <div className="w-24 h-24 bg-green-100 rounded-lg flex items-center justify-center mb-2">
-                    <Activity className="h-8 w-8 text-green-600" />
+                  <div className="w-24 h-24 bg-green-900 rounded-lg flex items-center justify-center mb-2">
+                    <Activity className="h-8 w-8 text-green-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900">Data</p>
-                  <p className="text-xs text-gray-500">Processing</p>
+                  <p className="text-sm font-medium text-white">Data</p>
+                  <p className="text-xs text-gray-400">Processing</p>
                 </div>
 
                 <div className="flex items-center">
-                  <div className="w-16 h-0.5 bg-gray-300"></div>
-                  <Zap className="h-4 w-4 text-gray-400 mx-2" />
-                  <div className="w-16 h-0.5 bg-gray-300"></div>
+                  <div className="w-16 h-0.5 bg-gray-600"></div>
+                  <Zap className="h-4 w-4 text-gray-500 mx-2" />
+                  <div className="w-16 h-0.5 bg-gray-600"></div>
                 </div>
 
                 {/* Portfolio System */}
                 <div className="text-center">
-                  <div className="w-24 h-24 bg-purple-100 rounded-lg flex items-center justify-center mb-2">
-                    <PieChart className="h-8 w-8 text-purple-600" />
+                  <div className="w-24 h-24 bg-purple-900 rounded-lg flex items-center justify-center mb-2">
+                    <PieChart className="h-8 w-8 text-purple-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900">Portfolio</p>
-                  <p className="text-xs text-gray-500">System</p>
+                  <p className="text-sm font-medium text-white">Portfolio</p>
+                  <p className="text-xs text-gray-400">System</p>
                 </div>
 
                 <div className="flex items-center">
-                  <div className="w-16 h-0.5 bg-gray-300"></div>
-                  <Zap className="h-4 w-4 text-gray-400 mx-2" />
-                  <div className="w-16 h-0.5 bg-gray-300"></div>
+                  <div className="w-16 h-0.5 bg-gray-600"></div>
+                  <Zap className="h-4 w-4 text-gray-500 mx-2" />
+                  <div className="w-16 h-0.5 bg-gray-600"></div>
                 </div>
 
                 {/* Client Reports */}
                 <div className="text-center">
-                  <div className="w-24 h-24 bg-orange-100 rounded-lg flex items-center justify-center mb-2">
-                    <BarChart3 className="h-8 w-8 text-orange-600" />
+                  <div className="w-24 h-24 bg-orange-900 rounded-lg flex items-center justify-center mb-2">
+                    <BarChart3 className="h-8 w-8 text-orange-400" />
                   </div>
-                  <p className="text-sm font-medium text-gray-900">Client</p>
-                  <p className="text-xs text-gray-500">Reports</p>
+                  <p className="text-sm font-medium text-white">Client</p>
+                  <p className="text-xs text-gray-400">Reports</p>
                 </div>
               </div>
 
               <div className="mt-8 text-center">
-                <div className="inline-flex items-center px-4 py-2 bg-gray-100 rounded-lg">
-                  <Calendar className="h-4 w-4 text-gray-600 mr-2" />
-                  <span className="text-sm text-gray-600">Real-time updates every 15 minutes</span>
+                <div className="inline-flex items-center px-4 py-2 bg-gray-700 rounded-lg">
+                  <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-sm text-gray-400">Real-time updates every 15 minutes</span>
                 </div>
               </div>
             </div>
