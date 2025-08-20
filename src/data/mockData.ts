@@ -1,5 +1,32 @@
 import { Security, Trade, CashBalance, RiskMetrics, Benchmark, PortfolioSummary, FuturesContract, FuturesPosition } from '@/types/portfolio';
 
+/**
+ * Mock Data for Portfolio Management System
+ * 
+ * This file contains sample data for development, testing, and demonstration purposes.
+ * In production, this data would come from real-time market feeds, databases, and APIs.
+ * 
+ * The mock data represents a diversified portfolio with:
+ * - Technology stocks (AAPL, MSFT, TSLA)
+ * - Index ETF (VOO)
+ * - Financial sector stock (JPM)
+ * - Futures contracts (S&P 500, Gold, Oil, NASDAQ)
+ * - Multi-currency cash balances
+ * - Sample trades and risk metrics
+ */
+
+/**
+ * Mock Securities Portfolio
+ * 
+ * Represents a diversified portfolio of stocks, ETFs, and futures contracts.
+ * Each security includes current market data, purchase history, and performance metrics.
+ * 
+ * Portfolio Composition:
+ * - Technology: 40% (AAPL, MSFT, TSLA)
+ * - ETF: 20% (VOO - S&P 500 tracking)
+ * - Financial: 10% (JPM)
+ * - Futures: 30% (S&P 500, Gold)
+ */
 export const mockSecurities: Security[] = [
   {
     id: '1',
@@ -86,7 +113,7 @@ export const mockSecurities: Security[] = [
     sector: 'Financial',
     country: 'US'
   },
-  // Futures positions
+  // Futures positions - provide leverage and hedging capabilities
   {
     id: '6',
     name: 'E-mini S&P 500 Futures',

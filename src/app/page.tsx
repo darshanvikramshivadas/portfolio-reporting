@@ -45,7 +45,34 @@ import {
   AlertTriangle
 } from 'lucide-react';
 
+/**
+ * Portfolio Dashboard Component
+ * 
+ * Main application component for the Wealth Management Portfolio System.
+ * Provides a comprehensive view of portfolio performance, risk metrics, and trading capabilities.
+ * 
+ * Features:
+ * - Real-time portfolio summary and performance metrics
+ * - Securities and futures position management
+ * - Trade execution and tracking
+ * - Risk analysis and reporting
+ * - Multi-currency cash balance tracking
+ * - Futures trading with margin management
+ * 
+ * State Management:
+ * - Portfolio data (securities, trades, cash balances)
+ * - Risk metrics and performance calculations
+ * - Form states for trade execution
+ * - UI state for modals and displays
+ * 
+ * Business Logic:
+ * - Portfolio calculations and mark-to-market updates
+ * - Trade processing and position updates
+ * - Risk metric calculations
+ * - Margin utilization tracking
+ */
 export default function PortfolioDashboard() {
+  // Core portfolio data state
   const [securities, setSecurities] = useState<Security[]>(mockSecurities);
   const [trades, setTrades] = useState<Trade[]>(mockTrades);
   const [cashBalances] = useState<CashBalance[]>(mockCashBalances);
@@ -53,9 +80,13 @@ export default function PortfolioDashboard() {
   const [riskMetrics, setRiskMetrics] = useState(mockRiskMetrics);
   const [futuresContracts] = useState<FuturesContract[]>(mockFuturesContracts);
   const [futuresPositions] = useState<FuturesPosition[]>(mockFuturesPositions);
+  
+  // UI state management
   const [showTradeForm, setShowTradeForm] = useState(false);
   const [showFuturesForm, setShowFuturesForm] = useState(false);
   const [tradeType, setTradeType] = useState<'STOCK' | 'FUTURES'>('STOCK');
+  
+  // New trade form state - handles both stock and futures trades
   const [newTrade, setNewTrade] = useState({
     securityName: '',
     type: 'BUY' as 'BUY' | 'SELL' | 'LONG_FUTURES' | 'SHORT_FUTURES' | 'CLOSE_LONG' | 'CLOSE_SHORT',
@@ -64,6 +95,7 @@ export default function PortfolioDashboard() {
     date: new Date().toISOString().split('T')[0],
     commission: 0,
     notes: '',
+    // Futures-specific fields
     contractSize: 0,
     marginRequirement: 0,
     marginUsed: 0,
@@ -72,9 +104,15 @@ export default function PortfolioDashboard() {
     tickSize: 0,
     tickValue: 0
   });
+  
+  // Selected futures contract for trade form
   const [selectedContract, setSelectedContract] = useState<FuturesContract | null>(null);
 
-  // Function to recalculate portfolio metrics
+  /**
+   * Recalculate portfolio metrics and risk indicators
+   * Called when securities change or on initial load
+   * Updates portfolio summary and risk metrics based on current data
+   */
   const recalculatePortfolio = () => {
     const summary = calculatePortfolioSummary(securities, cashBalances, portfolioSummary.lastUpdated);
     setPortfolioSummary(summary);
@@ -83,11 +121,16 @@ export default function PortfolioDashboard() {
     setRiskMetrics(metrics);
   };
 
-  // Initial calculation on mount
+  // Initial portfolio calculation on component mount
   useEffect(() => {
     recalculatePortfolio();
   }, []); // Empty dependency array - only run on mount
 
+  /**
+   * Handle adding new trades to the portfolio
+   * Supports both stock and futures trading with different logic for each
+   * Updates securities state and triggers portfolio recalculation
+   */
   const handleAddTrade = () => {
     if (newTrade.securityName && newTrade.quantity > 0 && newTrade.price > 0) {
       const trade: Trade = {
