@@ -8,7 +8,9 @@ import {
   mockRiskMetrics, 
   mockBenchmarks, 
   mockPortfolioSummary,
-  mockClosingPrices
+  mockClosingPrices,
+  mockFuturesContracts,
+  mockFuturesPositions
 } from '@/data/mockData';
 import { 
   calculateMTM, 
@@ -17,9 +19,12 @@ import {
   formatCurrency, 
   formatPercentage, 
   getSecurityTypeColor, 
-  getGainLossColor 
+  getGainLossColor,
+  getPositionTypeColor,
+  formatContractSize,
+  formatTickValue
 } from '@/utils/calculations';
-import { Security, Trade, CashBalance } from '@/types/portfolio';
+import { Security, Trade, CashBalance, FuturesContract, FuturesPosition } from '@/types/portfolio';
 import { 
   TrendingUp, 
   DollarSign, 
@@ -31,7 +36,11 @@ import {
   Calendar,
   Globe,
   Database,
-  Zap
+  Zap,
+  TrendingDown,
+  Target,
+  Gauge,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function PortfolioDashboard() {
@@ -40,16 +49,28 @@ export default function PortfolioDashboard() {
   const [cashBalances] = useState<CashBalance[]>(mockCashBalances);
   const [portfolioSummary, setPortfolioSummary] = useState(mockPortfolioSummary);
   const [riskMetrics, setRiskMetrics] = useState(mockRiskMetrics);
+  const [futuresContracts] = useState<FuturesContract[]>(mockFuturesContracts);
+  const [futuresPositions] = useState<FuturesPosition[]>(mockFuturesPositions);
   const [showTradeForm, setShowTradeForm] = useState(false);
+  const [showFuturesForm, setShowFuturesForm] = useState(false);
+  const [tradeType, setTradeType] = useState<'STOCK' | 'FUTURES'>('STOCK');
   const [newTrade, setNewTrade] = useState({
     securityName: '',
-    type: 'BUY' as 'BUY' | 'SELL',
+    type: 'BUY' as 'BUY' | 'SELL' | 'LONG_FUTURES' | 'SHORT_FUTURES' | 'CLOSE_LONG' | 'CLOSE_SHORT',
     quantity: 0,
     price: 0,
     date: new Date().toISOString().split('T')[0],
     commission: 0,
-    notes: ''
+    notes: '',
+    contractSize: 0,
+    marginRequirement: 0,
+    marginUsed: 0,
+    positionType: 'LONG' as 'LONG' | 'SHORT',
+    expirationDate: '',
+    tickSize: 0,
+    tickValue: 0
   });
+  const [selectedContract, setSelectedContract] = useState<FuturesContract | null>(null);
 
   useEffect(() => {
     // Update portfolio calculations when data changes
@@ -75,7 +96,14 @@ export default function PortfolioDashboard() {
         value: newTrade.quantity * newTrade.price,
         date: newTrade.date,
         commission: newTrade.commission,
-        notes: newTrade.notes
+        notes: newTrade.notes,
+        contractSize: newTrade.contractSize,
+        marginRequirement: newTrade.marginRequirement,
+        marginUsed: newTrade.marginUsed,
+        positionType: newTrade.positionType,
+        expirationDate: newTrade.expirationDate,
+        tickSize: newTrade.tickSize,
+        tickValue: newTrade.tickValue
       };
 
       setTrades([...trades, trade]);
@@ -88,10 +116,32 @@ export default function PortfolioDashboard() {
         price: 0,
         date: new Date().toISOString().split('T')[0],
         commission: 0,
-        notes: ''
+        notes: '',
+        contractSize: 0,
+        marginRequirement: 0,
+        marginUsed: 0,
+        positionType: 'LONG',
+        expirationDate: '',
+        tickSize: 0,
+        tickValue: 0
       });
       setShowTradeForm(false);
+      setShowFuturesForm(false);
     }
+  };
+
+  const handleContractSelect = (contract: FuturesContract) => {
+    setSelectedContract(contract);
+    setNewTrade({
+      ...newTrade,
+      securityName: contract.name,
+      contractSize: contract.contractSize,
+      marginRequirement: contract.marginRequirement,
+      expirationDate: contract.expirationDate,
+      tickSize: contract.tickSize,
+      tickValue: contract.tickValue,
+      price: contract.currentPrice
+    });
   };
 
   const getPerformanceColor = (value: number) => {
@@ -167,6 +217,59 @@ export default function PortfolioDashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-300">Cash Value</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.cashValue)}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Futures Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-indigo-900 rounded-lg">
+                <Target className="h-6 w-6 text-indigo-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-300">Futures Value</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.futuresValue)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-yellow-900 rounded-lg">
+                <Gauge className="h-6 w-6 text-yellow-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-300">Margin Used</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.totalMarginUsed)}</p>
+                <p className="text-sm text-gray-400">{portfolioSummary.marginUtilizationPercent.toFixed(1)}% of cash</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-900 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-green-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-300">Available Margin</p>
+                <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.availableMargin)}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 p-6">
+            <div className="flex items-center">
+              <div className="p-2 bg-red-900 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-red-400" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-300">Leverage Ratio</p>
+                <p className="text-2xl font-bold text-white">{riskMetrics.leverageRatio.toFixed(2)}x</p>
+                <p className="text-sm text-gray-400">Portfolio leverage</p>
               </div>
             </div>
           </div>
@@ -282,6 +385,64 @@ export default function PortfolioDashboard() {
           </div>
         </div>
 
+        {/* Futures Positions */}
+        <div className="mt-8">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h2 className="text-lg font-medium text-white">Futures Positions</h2>
+              <p className="text-sm text-gray-300">Active futures contracts with margin and P&L tracking</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Mark to Market</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Unrealized P&L</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Used</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Leverage</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                  {futuresPositions.map((position) => (
+                    <tr key={position.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-white">{position.name}</div>
+                          <div className="text-sm text-gray-400">{position.symbol}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
+                          {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                          {position.positionType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.markToMarket)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
+                          {formatCurrency(position.unrealizedPnL)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.leverage.toFixed(1)}x</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         {/* Benchmark Performance */}
         <div className="mt-8">
           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
@@ -325,6 +486,62 @@ export default function PortfolioDashboard() {
           </div>
         </div>
 
+        {/* Available Futures Contracts */}
+        <div className="mt-8">
+          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+            <div className="px-6 py-4 border-b border-gray-700">
+              <h2 className="text-lg font-medium text-white">Available Futures Contracts</h2>
+              <p className="text-sm text-gray-300">Select contracts for trading with real-time pricing</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Change</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract Size</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tick Value</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Req.</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                  {futuresContracts.map((contract) => (
+                    <tr key={contract.id} className="hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-white">{contract.name}</div>
+                          <div className="text-sm text-gray-400">{contract.symbol}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(contract.currentPrice)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`text-sm font-medium ${getGainLossColor(contract.change)}`}>
+                          {contract.change > 0 ? '+' : ''}{contract.change.toFixed(2)} ({contract.changePercent > 0 ? '+' : ''}{contract.changePercent.toFixed(2)}%)
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatContractSize(contract.contractSize)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatTickValue(contract.tickValue)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{(contract.marginRequirement * 100).toFixed(1)}%</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{contract.expirationDate}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handleContractSelect(contract)}
+                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                        >
+                          Trade
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         {/* Trade Management */}
         <div className="mt-8">
           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
@@ -333,12 +550,36 @@ export default function PortfolioDashboard() {
                 <h2 className="text-lg font-medium text-white">Trade Management</h2>
                 <p className="text-sm text-gray-300">Add new trades with back-dated entries</p>
               </div>
-              <button
-                onClick={() => setShowTradeForm(!showTradeForm)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                {showTradeForm ? 'Cancel' : 'Add Trade'}
-              </button>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setTradeType('STOCK');
+                    setShowTradeForm(!showTradeForm);
+                    setShowFuturesForm(false);
+                  }}
+                  className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
+                    tradeType === 'STOCK' && showTradeForm
+                      ? 'border-blue-500 text-blue-400 bg-blue-900'
+                      : 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  Stock/ETF
+                </button>
+                <button
+                  onClick={() => {
+                    setTradeType('FUTURES');
+                    setShowFuturesForm(!showFuturesForm);
+                    setShowTradeForm(false);
+                  }}
+                  className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
+                    tradeType === 'FUTURES' && showFuturesForm
+                      ? 'border-indigo-500 text-indigo-400 bg-indigo-900'
+                      : 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  Futures
+                </button>
+              </div>
             </div>
 
             {showTradeForm && (
@@ -428,6 +669,130 @@ export default function PortfolioDashboard() {
               </div>
             )}
 
+            {/* Futures Trading Form */}
+            {showFuturesForm && (
+              <div className="p-6 border-b border-gray-700">
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-white mb-2">Futures Trading</h3>
+                  {selectedContract && (
+                    <div className="bg-gray-700 rounded-lg p-4 mb-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-400">Contract:</span>
+                          <div className="text-white font-medium">{selectedContract.name}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Current Price:</span>
+                          <div className="text-white font-medium">{formatCurrency(selectedContract.currentPrice)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Contract Size:</span>
+                          <div className="text-white font-medium">{formatContractSize(selectedContract.contractSize)}</div>
+                        </div>
+                        <div>
+                          <span className="text-gray-400">Margin Req:</span>
+                          <div className="text-white font-medium">{(selectedContract.marginRequirement * 100).toFixed(1)}%</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Position Type</label>
+                    <select
+                      value={newTrade.positionType}
+                      onChange={(e) => setNewTrade({...newTrade, positionType: e.target.value as 'LONG' | 'SHORT'})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                    >
+                      <option value="LONG">Long</option>
+                      <option value="SHORT">Short</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Trade Type</label>
+                    <select
+                      value={newTrade.type}
+                      onChange={(e) => setNewTrade({...newTrade, type: e.target.value as 'LONG_FUTURES' | 'SHORT_FUTURES' | 'CLOSE_LONG' | 'CLOSE_SHORT'})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                    >
+                      <option value="LONG_FUTURES">Open Long</option>
+                      <option value="SHORT_FUTURES">Open Short</option>
+                      <option value="CLOSE_LONG">Close Long</option>
+                      <option value="CLOSE_SHORT">Close Short</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Quantity</label>
+                    <input
+                      type="number"
+                      value={newTrade.quantity}
+                      onChange={(e) => setNewTrade({...newTrade, quantity: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                      placeholder="1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Price</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newTrade.price}
+                      onChange={(e) => setNewTrade({...newTrade, price: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                      placeholder={selectedContract?.currentPrice.toString() || "0.00"}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                    <input
+                      type="date"
+                      value={newTrade.date}
+                      onChange={(e) => setNewTrade({...newTrade, date: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Commission</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={newTrade.commission}
+                      onChange={(e) => setNewTrade({...newTrade, commission: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                      placeholder="4.50"
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
+                    <input
+                      type="text"
+                      value={newTrade.notes}
+                      onChange={(e) => setNewTrade({...newTrade, notes: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                      placeholder="Trade notes..."
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4">
+                  <button
+                    onClick={handleAddTrade}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                  >
+                    Execute Futures Trade
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-700">
                 <thead className="bg-gray-700">
@@ -449,10 +814,15 @@ export default function PortfolioDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{trade.securityName}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
-                          trade.type === 'BUY' ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'
+                          trade.type === 'BUY' || trade.type === 'LONG_FUTURES' ? 'bg-green-900 text-green-300' : 
+                          trade.type === 'SELL' || trade.type === 'SHORT_FUTURES' ? 'bg-red-900 text-red-300' :
+                          trade.type === 'CLOSE_LONG' || trade.type === 'CLOSE_SHORT' ? 'bg-yellow-900 text-yellow-300' :
+                          'bg-gray-700 text-gray-300'
                         }`}>
-                          {trade.type === 'BUY' ? <Plus className="h-3 w-3 mr-1" /> : <Minus className="h-3 w-3 mr-1" />}
-                          {trade.type}
+                          {trade.type === 'BUY' || trade.type === 'LONG_FUTURES' ? <Plus className="h-3 w-3 mr-1" /> : 
+                           trade.type === 'SELL' || trade.type === 'SHORT_FUTURES' ? <Minus className="h-3 w-3 mr-1" /> :
+                           <Target className="h-3 w-3 mr-1" />}
+                          {trade.type.replace('_', ' ')}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{trade.quantity.toLocaleString()}</td>

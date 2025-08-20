@@ -1,7 +1,7 @@
 export interface Security {
   id: string;
   name: string;
-  type: 'STOCK' | 'BOND' | 'ETF' | 'MUTUAL_FUND' | 'OPTION';
+  type: 'STOCK' | 'BOND' | 'ETF' | 'MUTUAL_FUND' | 'OPTION' | 'FUTURES';
   symbol: string;
   quantity: number;
   buyPrice: number;
@@ -14,19 +14,35 @@ export interface Security {
   holdingPeriod: number; // in days
   sector?: string;
   country?: string;
+  // Futures specific fields
+  contractSize?: number;
+  marginRequirement?: number;
+  marginUsed?: number;
+  positionType?: 'LONG' | 'SHORT';
+  expirationDate?: string;
+  tickSize?: number;
+  tickValue?: number;
 }
 
 export interface Trade {
   id: string;
   securityId: string;
   securityName: string;
-  type: 'BUY' | 'SELL';
+  type: 'BUY' | 'SELL' | 'LONG_FUTURES' | 'SHORT_FUTURES' | 'CLOSE_LONG' | 'CLOSE_SHORT';
   quantity: number;
   price: number;
   value: number;
   date: string;
   commission: number;
   notes?: string;
+  // Futures specific fields
+  contractSize?: number;
+  marginRequirement?: number;
+  marginUsed?: number;
+  positionType?: 'LONG' | 'SHORT';
+  expirationDate?: string;
+  tickSize?: number;
+  tickValue?: number;
 }
 
 export interface CashBalance {
@@ -42,6 +58,10 @@ export interface RiskMetrics {
   sharpeRatio: number;
   volatility: number;
   maxDrawdown: number;
+  // Futures specific metrics
+  marginUtilization: number;
+  leverageRatio: number;
+  futuresExposure: number;
 }
 
 export interface Benchmark {
@@ -63,4 +83,47 @@ export interface PortfolioSummary {
   cashValue: number;
   securitiesValue: number;
   lastUpdated: string;
+  // Futures specific summary
+  futuresValue: number;
+  totalMarginUsed: number;
+  availableMargin: number;
+  marginUtilizationPercent: number;
+  unrealizedPnL: number;
+}
+
+export interface FuturesContract {
+  id: string;
+  symbol: string;
+  name: string;
+  contractSize: number;
+  tickSize: number;
+  tickValue: number;
+  marginRequirement: number;
+  expirationDate: string;
+  currentPrice: number;
+  lastPrice: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  openInterest: number;
+}
+
+export interface FuturesPosition {
+  id: string;
+  contractId: string;
+  symbol: string;
+  name: string;
+  positionType: 'LONG' | 'SHORT';
+  quantity: number;
+  entryPrice: number;
+  currentPrice: number;
+  markToMarket: number;
+  unrealizedPnL: number;
+  marginUsed: number;
+  marginRequirement: number;
+  leverage: number;
+  entryDate: string;
+  expirationDate: string;
+  tickSize: number;
+  tickValue: number;
 }
