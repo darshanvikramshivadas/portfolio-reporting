@@ -113,6 +113,7 @@ export const mockSecurities: Security[] = [
     sector: 'Financial',
     country: 'US'
   },
+
   // Futures positions - provide leverage and hedging capabilities
   {
     id: '6',
@@ -495,3 +496,21 @@ export const mockFuturesPositions: FuturesPosition[] = [
     tickValue: 10.00
   }
 ];
+
+// --- MOCK DATA CREATOR --- //
+export const createMockHistoricalReturns = (days: number, mean: number, stdDev: number): number[] => {
+// simple random walk style returns
+const returns: number[] = [];
+for (let i = 0; i < days; i++) {
+const rand = (Math.random() - 0.5) * 2; // uniform [-1, 1]
+const r = mean / days + stdDev * rand / Math.sqrt(days);
+returns.push(r);
+}
+return returns;
+};
+
+export const getRandomRate = (baseRate: number): number => {
+  // random change between -2% and +2%
+  const changePercent = (Math.random() * 0.04 - 0.02);
+  return +(baseRate * (1 + changePercent)).toFixed(5);
+};

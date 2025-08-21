@@ -50,6 +50,7 @@ export interface Security {
   holdingPeriod: number; // in days
   sector?: string;
   country?: string;
+  historicalReturns?: number[]; // daily/weekly returns
   // Futures specific fields
   contractSize?: number;
   marginRequirement?: number;

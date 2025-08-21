@@ -1,13 +1,7 @@
 import { Security, CashBalance, RiskMetrics, FuturesPosition, FuturesContract } from '@/types/portfolio';
 
-/**
- * Calculate Mark-to-Market (MTM) values for a list of securities
- * This function updates current prices, values, and calculates unrealized gains/losses
- * 
- * @param securities - Array of security objects to calculate MTM for
- * @param closingPrices - Record of symbol to current market price mappings
- * @returns Updated securities array with current MTM calculations
- */
+import { createMockHistoricalReturns, getRandomRate } from '@/data/mockData';
+
 export const calculateMTM = (securities: Security[], closingPrices: Record<string, number>): Security[] => {
   return securities.map(security => {
     // Get current market price, fallback to stored price if not available
@@ -16,7 +10,7 @@ export const calculateMTM = (securities: Security[], closingPrices: Record<strin
     // Variables to store calculated values
     let currentValue: number;
     let gainLoss: number;
-    let gainLossPercent: number;
+   
 
     if (security.type === 'FUTURES') {
       // For futures contracts, calculate based on contract size and position type
@@ -37,8 +31,7 @@ export const calculateMTM = (securities: Security[], closingPrices: Record<strin
       gainLoss = currentValue - security.buyValue;
     }
 
-    // Calculate percentage gain/loss relative to original investment
-    gainLossPercent = (gainLoss / security.buyValue) * 100;
+    const gainLossPercent = (gainLoss / security.buyValue) * 100;
 
     // Return updated security with new MTM calculations
     return {
@@ -51,25 +44,15 @@ export const calculateMTM = (securities: Security[], closingPrices: Record<strin
   });
 };
 
-/**
- * Calculate comprehensive portfolio summary metrics
- * Aggregates values across all securities, cash, and futures positions
- * 
- * @param securities - Array of all portfolio securities
- * @param cashBalances - Array of cash balances in different currencies
- * @param lastUpdated - Optional timestamp to preserve existing lastUpdated value
- * @returns Portfolio summary with total values, gains/losses, and margin metrics
- */
-export const calculatePortfolioSummary = (securities: Security[], cashBalances: CashBalance[], lastUpdated?: string) => {
-  // Calculate total value of non-futures securities (stocks, bonds, ETFs)
+export const calculatePortfolioSummary = (securities: Security[], futuresContracts: FuturesContract[], cashBalances: CashBalance[], lastUpdated?: string) => {
+
   const securitiesValue = securities
     .filter(s => s.type !== 'FUTURES')
     .reduce((sum, security) => sum + security.currentValue, 0);
   
-  // Calculate total value of futures positions
-  const futuresValue = securities
-    .filter(s => s.type === 'FUTURES')
-    .reduce((sum, security) => sum + security.currentValue, 0);
+
+  const futuresValue = futuresContracts
+    .reduce((sum, security) => sum + (security.lastPrice*security.contractSize), 0);
   
   // Sum up all cash balances converted to USD equivalent
   const cashValue = cashBalances.reduce((sum, balance) => sum + balance.usdEquivalent, 0);
@@ -83,10 +66,9 @@ export const calculatePortfolioSummary = (securities: Security[], cashBalances: 
   // Calculate percentage gain/loss relative to total portfolio value
   const totalGainLossPercent = totalValue > 0 ? (totalGainLoss / (totalValue - totalGainLoss)) * 100 : 0;
 
-  // Calculate margin utilization metrics for futures trading
-  const totalMarginUsed = securities
-    .filter(s => s.type === 'FUTURES')
-    .reduce((sum, security) => sum + (security.marginUsed || 0), 0);
+  // Calculate margin metrics
+  const totalMarginUsed = futuresContracts
+    .reduce((sum, security) => sum + (security.currentPrice*security.contractSize* security.marginRequirement || 0), 0);
   
   // Available margin is cash minus used margin
   const availableMargin = cashValue - totalMarginUsed;
@@ -109,70 +91,135 @@ export const calculatePortfolioSummary = (securities: Security[], cashBalances: 
   };
 };
 
-/**
- * Calculate portfolio risk metrics and performance indicators
- * Uses mock data for demonstration - in production would use historical data
- * 
- * @param securities - Array of portfolio securities
- * @returns Risk metrics including beta, Sharpe ratio, volatility, and futures exposure
- */
+export const updateSecurities = (securities: Security[]): Security[] => {
+  return securities.map((security) => {
+    // random factor between -0.1 and +0.1
+    const randomFactor = 1 + (Math.random() * 0.2 - 0.1);
+
+    // new current price
+    const newPrice = +(security.buyPrice * randomFactor).toFixed(2);
+
+    // new current value
+    const newValue = +(newPrice * security.quantity).toFixed(2);
+
+    // calculate gain/loss
+    const gainLoss = +(newValue - security.buyValue).toFixed(2);
+    const gainLossPercent = +((gainLoss / security.buyValue) * 100).toFixed(2);
+
+    return {
+      ...security,
+      currentPrice: newPrice,
+      currentValue: newValue,
+      gainLoss,
+      gainLossPercent,
+    };
+  });
+};
+
 export const calculateRiskMetrics = (securities: Security[]): RiskMetrics => {
-  // Calculate total portfolio value for weighting calculations
-  const totalValue = securities.reduce((sum, security) => sum + security.currentValue, 0);
-  
-  // Mock beta values for different securities (in production, these would come from market data)
-  // Beta measures volatility relative to market (1.0 = market average, >1 = more volatile, <1 = less volatile)
-  const mockBetas: Record<string, number> = {
-    'AAPL': 1.2,    // Technology stocks typically more volatile
-    'MSFT': 1.1,    // Large cap tech, slightly less volatile than AAPL
-    'VOO': 1.0,     // S&P 500 ETF, market beta by definition
-    'TSLA': 1.8,    // High growth stock, very volatile
-    'JPM': 0.9,     // Financial sector, typically less volatile than tech
-    'ES': 1.0,      // S&P 500 futures, market beta
-    'GC': 0.0       // Gold futures, uncorrelated with market
-  };
-  
-  // Calculate portfolio beta as weighted average of individual security betas
-  const portfolioBeta = securities.reduce((sum, security) => {
-    const weight = security.currentValue / totalValue;
-    return sum + (mockBetas[security.symbol] || 1.0) * weight;
-  }, 0);
+    const mockBetas: Record<string, number> = {
+    'AAPL': 1.2,
+    'MSFT': 1.1,
+    'VOO': 1.0,
+    'TSLA': 1.8,
+    'JPM': 0.9,
+    'ES': 1.0,
+    'GC': 0.0
+    };
 
-  // Mock risk metrics for demonstration purposes
-  const volatility = 0.18;        // 18% annual volatility (standard deviation)
-  const riskFreeRate = 0.05;      // 5% risk-free rate (e.g., Treasury bonds)
-  const portfolioReturn = 0.12;   // 12% portfolio return
-  
-  // Sharpe ratio: risk-adjusted return measure (higher is better)
-  const sharpeRatio = (portfolioReturn - riskFreeRate) / volatility;
-  
-  // Maximum historical drawdown (worst peak-to-trough decline)
-  const maxDrawdown = -0.08; // 8% maximum drawdown
+    const totalValue = securities.reduce((sum, s) => sum + s.currentValue, 0);
+    if (totalValue === 0) throw new Error("Portfolio has zero value");
 
-  // Calculate futures-specific risk metrics
-  const futuresSecurities = securities.filter(s => s.type === 'FUTURES');
-  const futuresValue = futuresSecurities.reduce((sum, s) => sum + s.currentValue, 0);
-  const totalMarginUsed = futuresSecurities.reduce((sum, s) => sum + (s.marginUsed || 0), 0);
-  
-  // Margin utilization as percentage of total portfolio value
-  const marginUtilization = totalValue > 0 ? totalMarginUsed / totalValue : 0;
-  
-  // Leverage ratio: total exposure / net capital
-  const leverageRatio = totalValue > 0 ? totalValue / (totalValue - totalMarginUsed) : 1;
-  
-  // Futures exposure as percentage of total portfolio
-  const futuresExposure = totalValue > 0 ? futuresValue / totalValue : 0;
+    securities.forEach(s => {
+      if (!s.historicalReturns) {
+        // assign mean return ~8% annually, vol ~20%
+        const mean = 0.08;
+        const vol = 0.20;
+        s.historicalReturns = createMockHistoricalReturns(s.holdingPeriod, mean, vol);
+      }
+    });
 
-  return {
-    delta: 0.85, // Mock delta for options (if any) - measures price sensitivity
+
+    // Weighted portfolio returns
+    const weights = securities.map(s => s.currentValue / totalValue);
+    const n = 365;
+
+    // find minimum available history length across securities
+    const minLength = Math.min(
+      ...securities.map(s => s.historicalReturns?.length || 0)
+    );
+
+    const portfolioReturns = Array.from({ length: Math.min(n, minLength) }, (_, i) =>
+      securities.reduce((acc, s, j) => {
+        const r = s.historicalReturns?.[i] ?? 0; // default 0 if missing
+        return acc + r * weights[j];
+      }, 0)
+    );
+
+    // Volatility (std dev)
+    const meanReturn = portfolioReturns.reduce((a, b) => a + b, 0) / n;
+    const variance = portfolioReturns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / n;
+    const volatility = Math.sqrt(variance * 365); // annualized
+
+    // Sharpe ratio
+    const riskFreeRate = 0.05;
+    const annualReturn = meanReturn * 252;
+    const sharpeRatio = (annualReturn - riskFreeRate) / volatility;
+
+
+    // Max drawdown (cumulative product of returns)
+    let peak = 1;
+    let maxDD = 0;
+    let value = 1;
+    for (const r of portfolioReturns) {
+    value *= (1 + r);
+    peak = Math.max(peak, value);
+    maxDD = Math.min(maxDD, (value - peak) / peak);
+    }
+
+
+    // Portfolio beta (weighted average)
+    const portfolioBeta = securities.reduce((sum, s) => {
+    const w = s.currentValue / totalValue;
+    return sum + (mockBetas[s.symbol] ?? 1.0) * w;
+    }, 0);
+
+
+    // Futures-specific metrics
+    const futures = securities.filter(s => s.type === 'FUTURES');
+    const futuresValue = futures.reduce((sum, s) => sum + s.currentValue, 0);
+    const marginUsed = futures.reduce((sum, s) => sum + (s.marginUsed || 0), 0);
+
+
+    const marginUtilization = marginUsed / totalValue;
+    const leverageRatio = totalValue / (totalValue - marginUsed);
+    const futuresExposure = futuresValue / totalValue;
+
+
+    return {
+    delta: 0.85, // placeholder for option greeks
+
     beta: portfolioBeta,
     sharpeRatio,
     volatility,
-    maxDrawdown,
+    maxDrawdown: maxDD,
     marginUtilization,
     leverageRatio,
     futuresExposure
-  };
+    };
+};
+
+
+export const updateExchangeRates = (balances: CashBalance[]): CashBalance[] => {
+  return balances.map(b => {
+    const fluctuation = 1 + (Math.random() - 0.5) * 0.02; // ±1%
+    const newRate = b.exchangeRate * fluctuation;
+    return {
+      ...b,
+      exchangeRate: newRate,
+      usdEquivalent: b.amount * newRate
+    };
+  });
 };
 
 /**
