@@ -86,55 +86,6 @@ export const mockSecurities: Security[] = [
     sector: 'Financial',
     country: 'US'
   },
-  // Futures positions
-  {
-    id: '6',
-    name: 'E-mini S&P 500 Futures',
-    type: 'FUTURES',
-    symbol: 'ES',
-    quantity: 2,
-    buyPrice: 4200.00,
-    buyValue: 420000.00,
-    currentPrice: 4250.00,
-    currentValue: 425000.00,
-    gainLoss: 5000.00,
-    gainLossPercent: 1.19,
-    buyDate: '2023-12-01',
-    holdingPeriod: 30,
-    sector: 'Futures',
-    country: 'US',
-    contractSize: 50,
-    marginRequirement: 0.05,
-    marginUsed: 21000.00,
-    positionType: 'LONG',
-    expirationDate: '2024-03-15',
-    tickSize: 0.25,
-    tickValue: 12.50
-  },
-  {
-    id: '7',
-    name: 'Gold Futures',
-    type: 'FUTURES',
-    symbol: 'GC',
-    quantity: 1,
-    buyPrice: 1950.00,
-    buyValue: 195000.00,
-    currentPrice: 1920.00,
-    currentValue: 192000.00,
-    gainLoss: -3000.00,
-    gainLossPercent: -1.54,
-    buyDate: '2023-11-15',
-    holdingPeriod: 45,
-    sector: 'Futures',
-    country: 'US',
-    contractSize: 100,
-    marginRequirement: 0.08,
-    marginUsed: 15600.00,
-    positionType: 'LONG',
-    expirationDate: '2024-02-28',
-    tickSize: 0.10,
-    tickValue: 10.00
-  }
 ];
 
 export const mockTrades: Trade[] = [
@@ -468,3 +419,21 @@ export const mockFuturesPositions: FuturesPosition[] = [
     tickValue: 10.00
   }
 ];
+
+// --- MOCK DATA CREATOR --- //
+export const createMockHistoricalReturns = (days: number, mean: number, stdDev: number): number[] => {
+// simple random walk style returns
+const returns: number[] = [];
+for (let i = 0; i < days; i++) {
+const rand = (Math.random() - 0.5) * 2; // uniform [-1, 1]
+const r = mean / days + stdDev * rand / Math.sqrt(days);
+returns.push(r);
+}
+return returns;
+};
+
+export const getRandomRate = (baseRate: number): number => {
+  // random change between -2% and +2%
+  const changePercent = (Math.random() * 0.04 - 0.02);
+  return +(baseRate * (1 + changePercent)).toFixed(5);
+};

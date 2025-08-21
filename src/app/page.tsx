@@ -13,7 +13,9 @@ import {
   mockFuturesPositions
 } from '@/data/mockData';
 import { 
-  calculateMTM, 
+  updateExchangeRates,
+  calculateMTM,
+  updateSecurities, 
   calculatePortfolioSummary, 
   calculateRiskMetrics,
   formatCurrency, 
@@ -48,7 +50,7 @@ import {
 export default function PortfolioDashboard() {
   const [securities, setSecurities] = useState<Security[]>(mockSecurities);
   const [trades, setTrades] = useState<Trade[]>(mockTrades);
-  const [cashBalances] = useState<CashBalance[]>(mockCashBalances);
+  const [cashBalances, setCashBalances] = useState<CashBalance[]>(mockCashBalances);
   const [portfolioSummary, setPortfolioSummary] = useState(mockPortfolioSummary);
   const [riskMetrics, setRiskMetrics] = useState(mockRiskMetrics);
   const [futuresContracts] = useState<FuturesContract[]>(mockFuturesContracts);
@@ -74,21 +76,32 @@ export default function PortfolioDashboard() {
   });
   const [selectedContract, setSelectedContract] = useState<FuturesContract | null>(null);
 
-  // Function to recalculate portfolio metrics
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setSecurities((prev) => updateSecurities(prev));
+      setCashBalances((prev) => updateExchangeRates(prev));
+    }, 10000); // updates every 1 second
+
+    return () => clearInterval(interval); // cleanup
+  }, []);
+
   const recalculatePortfolio = () => {
-    const summary = calculatePortfolioSummary(securities, cashBalances, portfolioSummary.lastUpdated);
-    setPortfolioSummary(summary);
-    
-    const metrics = calculateRiskMetrics(securities);
-    setRiskMetrics(metrics);
+     const summary = calculatePortfolioSummary(securities, futuresContracts, cashBalances, portfolioSummary.lastUpdated);
+      setPortfolioSummary(summary);
+      const metrics = calculateRiskMetrics(securities);
+      setRiskMetrics(metrics);
   };
 
   // Initial calculation on mount
   useEffect(() => {
     recalculatePortfolio();
-  }, []); // Empty dependency array - only run on mount
+  },[securities, cashBalances, portfolioSummary.lastUpdated]); 
 
   const handleAddTrade = () => {
+    // Check if all required fields are filled
+    console.log(newTrade);
+
     if (newTrade.securityName && newTrade.quantity > 0 && newTrade.price > 0) {
       const trade: Trade = {
         id: Date.now().toString(),
@@ -178,6 +191,10 @@ export default function PortfolioDashboard() {
       setShowFuturesForm(false);
     }
   };
+
+  const handleSell = (id: string) => {
+  setSecurities(prev => prev.filter(sec => sec.id !== id));
+};
 
   const handleContractSelect = (contract: FuturesContract) => {
     setSelectedContract(contract);
@@ -346,7 +363,7 @@ export default function PortfolioDashboard() {
                     </tr>
                   </thead>
                   <tbody className="bg-gray-800 divide-y divide-gray-700">
-                    {securities.map((security) => (
+                    {securities.length > 0 && securities.map((security) => (
                       <tr key={security.id} className="hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div>
@@ -371,6 +388,14 @@ export default function PortfolioDashboard() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{security.holdingPeriod} days</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button
+                            onClick={() => handleSell(security.id)}
+                            className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                          >
+                            Sell
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -411,26 +436,52 @@ export default function PortfolioDashboard() {
             </div>
 
             {/* Cash Balances */}
-            <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 mt-6">
-              <div className="px-6 py-4 border-b border-gray-700">
+           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700 mt-6">
+              <div className="px-6 py-4 border-b border-gray-700 flex justify-between">
                 <h2 className="text-lg font-medium text-white">Cash Balances</h2>
                 <p className="text-sm text-gray-300">Multi-currency holdings</p>
               </div>
+
               <div className="p-6 space-y-3">
+                {/* Table header */}
+                <div className="flex justify-between text-xs font-semibold text-gray-400 border-b border-gray-700 pb-2">
+                  <span className="w-1/4">Currency</span>
+                  <span className="w-1/4 text-right">USD Buy</span>
+                  <span className="w-1/4 text-right">Rate</span>
+                  <span className="w-1/4 text-right">Equivalent (USD)</span>
+                </div>
+
+                {/* Rows */}
                 {cashBalances.map((balance) => (
-                  <div key={balance.currency} className="flex justify-between items-center">
-                    <div className="flex items-center">
+                  <div
+                    key={balance.currency}
+                    className="flex justify-between items-center py-1 text-sm"
+                  >
+                    {/* Currency */}
+                    <div className="w-1/4 flex items-center">
                       <Globe className="h-4 w-4 text-gray-500 mr-2" />
-                      <span className="text-sm font-medium text-white">{balance.currency}</span>
+                      <span className="text-white font-medium">{balance.currency}</span>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-white">{formatCurrency(balance.amount, balance.currency)}</div>
-                      <div className="text-xs text-gray-400">{formatCurrency(balance.usdEquivalent)}</div>
+
+                    {/* USD Buy */}
+                    <div className="w-1/4 text-right text-white font-semibold">
+                      {formatCurrency(balance.amount, balance.currency)}
+                    </div>
+
+                    {/* Rate */}
+                    <div className="w-1/4 text-right text-gray-300">
+                      {balance.exchangeRate.toFixed(4)}
+                    </div>
+
+                    {/* Equivalent in USD */}
+                    <div className="w-1/4 text-right text-green-400 font-semibold">
+                      {formatCurrency(balance.usdEquivalent, "USD")}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
+
           </div>
         </div>
 
@@ -535,62 +586,7 @@ export default function PortfolioDashboard() {
           </div>
         </div>
 
-        {/* Available Futures Contracts */}
-        <div className="mt-8">
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h2 className="text-lg font-medium text-white">Available Futures Contracts</h2>
-              <p className="text-sm text-gray-300">Select contracts for trading with real-time pricing</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Change</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract Size</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Tick Value</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Req.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-gray-800 divide-y divide-gray-700">
-                  {futuresContracts.map((contract) => (
-                    <tr key={contract.id} className="hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-white">{contract.name}</div>
-                          <div className="text-sm text-gray-400">{contract.symbol}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(contract.currentPrice)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${getGainLossColor(contract.change)}`}>
-                          {contract.change > 0 ? '+' : ''}{contract.change.toFixed(2)} ({contract.changePercent > 0 ? '+' : ''}{contract.changePercent.toFixed(2)}%)
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatContractSize(contract.contractSize)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatTickValue(contract.tickValue)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{(contract.marginRequirement * 100).toFixed(1)}%</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{contract.expirationDate}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleContractSelect(contract)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-                        >
-                          Trade
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
+      
         {/* Trade Management */}
         <div className="mt-8">
           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
@@ -748,7 +744,16 @@ export default function PortfolioDashboard() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              
                   <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Index:</label>
+                    <input
+                      type="text"
+                      value={newTrade.securityName}
+                      onChange={(e) => setNewTrade({...newTrade, securityName: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
+                      placeholder="Index"
+                    />
                     <label className="block text-sm font-medium text-gray-300 mb-1">Position Type</label>
                     <select
                       value={newTrade.positionType}
