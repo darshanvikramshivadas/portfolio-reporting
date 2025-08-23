@@ -459,6 +459,9 @@ export default function PortfolioDashboard() {
       
       // Remove from futures positions
       setFuturesPositions(prev => prev.filter(p => p.id !== positionId));
+      
+      // Update portfolio summary to reflect margin release
+      setTimeout(() => recalculatePortfolio(), 0);
     }
   };
 
@@ -1143,93 +1146,7 @@ export default function PortfolioDashboard() {
               </div>
             )}
 
-            {/* Open Futures Positions */}
-            <div className="p-6 border-b border-gray-700">
-              <h3 className="text-lg font-medium text-white mb-4">Open Futures Positions</h3>
-              
-              {futuresPositions.length > 0 ? (
-                <>
-                  {/* Summary Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-sm text-gray-400">Total P&L</div>
-                      <div className={`text-lg font-semibold ${getGainLossColor(futuresPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0))}`}>
-                        {formatCurrency(futuresPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0))}
-                      </div>
-                    </div>
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-sm text-gray-400">Total Margin Used</div>
-                      <div className="text-lg font-semibold text-white">
-                        {formatCurrency(futuresPositions.reduce((sum, p) => sum + p.marginUsed, 0))}
-                      </div>
-                    </div>
-                    <div className="bg-gray-700 rounded-lg p-4">
-                      <div className="text-sm text-gray-400">Active Positions</div>
-                      <div className="text-lg font-semibold text-white">
-                        {futuresPositions.length}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-700">
-                      <thead className="bg-gray-700">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Symbol</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position Type</th>
-                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
-                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
-                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
-                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiry Date</th>
-                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">P&L</th>
-                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
-                         </tr>
-                       </thead>
-                       <tbody className="bg-gray-800 divide-y divide-gray-700">
-                         {futuresPositions.map((position) => (
-                           <tr key={position.id} className="hover:bg-gray-700">
-                             <td className="px-6 py-4 whitespace-nowrap">
-                               <div>
-                                 <div className="text-sm font-medium text-white">{position.symbol}</div>
-                                 <div className="text-sm text-gray-400">{position.name}</div>
-                               </div>
-                             </td>
-                             <td className="px-6 py-4 whitespace-nowrap">
-                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
-                                 {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                                 {position.positionType}
-                               </span>
-                             </td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
-                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
-                                {formatCurrency(position.unrealizedPnL)}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <button
-                                onClick={() => closeFuturesPosition(position.id)}
-                                className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
-                              >
-                                Close
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <div className="text-gray-400 text-lg mb-2">No Open Futures Positions</div>
-                  <div className="text-gray-500 text-sm">Open a futures position using the form above to see it here</div>
-                </div>
-              )}
-            </div>
+            
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-700">
