@@ -9,7 +9,6 @@ const inter = Inter({ subsets: ["latin"] });
  * Application Metadata
  * 
  * Defines the page title, description, and other meta information
- * used by search engines and social media platforms
  */
 export const metadata: Metadata = {
   title: "Wealth Management Portfolio - Client Servicing Desk",
