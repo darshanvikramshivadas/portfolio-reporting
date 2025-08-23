@@ -81,7 +81,7 @@ export default function PortfolioDashboard() {
   const [portfolioSummary, setPortfolioSummary] = useState(mockPortfolioSummary);
   const [riskMetrics, setRiskMetrics] = useState(mockRiskMetrics);
   const [futuresContracts] = useState<FuturesContract[]>(mockFuturesContracts);
-  const [futuresPositions] = useState<FuturesPosition[]>(mockFuturesPositions);
+  const [futuresPositions, setFuturesPositions] = useState<FuturesPosition[]>(mockFuturesPositions);
   
   // UI state management
   const [showTradeForm, setShowTradeForm] = useState(false);
@@ -106,15 +106,59 @@ export default function PortfolioDashboard() {
     tickSize: 0,
     tickValue: 0
   });
+
+  // New futures trade form state
+  const [newFuturesTrade, setNewFuturesTrade] = useState({
+    instrumentType: 'Index' as 'Index' | 'Stock Futures' | 'Commodity Futures',
+    symbol: '',
+    positionType: 'LONG' as 'LONG' | 'SHORT',
+    orderType: 'Market' as 'Market' | 'Limit' | 'Stop-Loss',
+    quantity: 0,
+    entryPrice: 0,
+    triggerPrice: 0,
+    expiryDate: '',
+    dateOfEntry: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
   
   // Selected futures contract for trade form
   const [selectedContract, setSelectedContract] = useState<FuturesContract | null>(null);
+  
+  // Available symbols for futures trading
+  const [availableSymbols] = useState([
+    'NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'HDFC', 'ICICIBANK', 'HINDUNILVR',
+    'ITC', 'BHARTIARTL', 'AXISBANK', 'KOTAKBANK', 'ASIANPAINT', 'MARUTI', 'SUNPHARMA'
+  ]);
+  
+  // Current market price for selected symbol
+  const [currentMarketPrice, setCurrentMarketPrice] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setSecurities((prev) => updateSecurities(prev));
       setCashBalances((prev) => updateExchangeRates(prev));
-    }, 10000); // updates every 1 second
+      
+      // Update futures positions with real-time prices
+      setFuturesPositions((prev) => 
+        prev.map(position => {
+          // Simulate price updates for futures positions
+          const basePrice = position.entryPrice;
+          const randomVariation = (Math.random() - 0.5) * 0.01; // ±0.5% variation
+          const newPrice = basePrice * (1 + randomVariation);
+          const newMarkToMarket = position.quantity * newPrice;
+          const newPnL = position.positionType === 'LONG' 
+            ? newMarkToMarket - (position.quantity * position.entryPrice)
+            : (position.quantity * position.entryPrice) - newMarkToMarket;
+          
+          return {
+            ...position,
+            currentPrice: newPrice,
+            markToMarket: newMarkToMarket,
+            unrealizedPnL: newPnL
+          };
+        })
+      );
+    }, 10000); // updates every 10 seconds
 
     return () => clearInterval(interval); // cleanup
   }, []);
@@ -231,8 +275,8 @@ export default function PortfolioDashboard() {
   };
 
   const handleSell = (id: string) => {
-  setSecurities(prev => prev.filter(sec => sec.id !== id));
-};
+    setSecurities(prev => prev.filter(sec => sec.id !== id));
+  };
 
   const handleContractSelect = (contract: FuturesContract) => {
     setSelectedContract(contract);
@@ -246,6 +290,176 @@ export default function PortfolioDashboard() {
       tickValue: contract.tickValue,
       price: contract.currentPrice
     });
+  };
+
+  // Handle futures trade execution
+  const handleFuturesTrade = () => {
+    if (newFuturesTrade.symbol && newFuturesTrade.quantity > 0) {
+      // Create a new futures trade
+      const trade: Trade = {
+        id: Date.now().toString(),
+        securityId: Date.now().toString(),
+        securityName: `${newFuturesTrade.instrumentType} - ${newFuturesTrade.symbol}`,
+        type: newFuturesTrade.positionType === 'LONG' ? 'LONG_FUTURES' : 'SHORT_FUTURES',
+        quantity: newFuturesTrade.quantity,
+        price: newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice,
+        value: newFuturesTrade.quantity * (newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice),
+        date: newFuturesTrade.dateOfEntry,
+        commission: 0,
+        notes: newFuturesTrade.notes,
+        contractSize: 0,
+        marginRequirement: 0,
+        marginUsed: 0,
+        positionType: newFuturesTrade.positionType,
+        expirationDate: newFuturesTrade.expiryDate,
+        tickSize: 0,
+        tickValue: 0
+      };
+
+      setTrades([...trades, trade]);
+      
+      // Add to futures positions for Open Futures display
+      const newFuturesPosition: FuturesPosition = {
+        id: Date.now().toString(),
+        contractId: Date.now().toString(),
+        name: `${newFuturesTrade.instrumentType} - ${newFuturesTrade.symbol}`,
+        symbol: newFuturesTrade.symbol,
+        positionType: newFuturesTrade.positionType,
+        quantity: newFuturesTrade.quantity,
+        entryPrice: newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice,
+        currentPrice: newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice,
+        markToMarket: newFuturesTrade.quantity * (newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice),
+        unrealizedPnL: 0,
+        marginUsed: 0,
+        marginRequirement: 0.1, // 10% margin requirement
+        leverage: 1.0,
+        entryDate: newFuturesTrade.dateOfEntry,
+        expirationDate: newFuturesTrade.expiryDate,
+        tickSize: 0.01,
+        tickValue: 0.01
+      };
+      
+      // Update futures positions state
+      const updatedFuturesPositions = [...futuresPositions, newFuturesPosition];
+      setFuturesPositions(updatedFuturesPositions);
+      
+      // Reset form
+      setNewFuturesTrade({
+        instrumentType: 'Index',
+        symbol: '',
+        positionType: 'LONG',
+        orderType: 'Market',
+        quantity: 0,
+        entryPrice: 0,
+        triggerPrice: 0,
+        expiryDate: '',
+        dateOfEntry: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
+      setCurrentMarketPrice(0);
+      setShowFuturesForm(false);
+    }
+  };
+
+  // Check if futures trade form is valid
+  const isFuturesTradeValid = () => {
+    const basicValid = newFuturesTrade.symbol && 
+                      newFuturesTrade.quantity > 0;
+    
+    if (newFuturesTrade.orderType === 'Limit') {
+      return basicValid && newFuturesTrade.entryPrice > 0;
+    }
+    
+    if (newFuturesTrade.orderType === 'Stop-Loss') {
+      return basicValid && newFuturesTrade.triggerPrice > 0;
+    }
+    
+    return basicValid;
+  };
+
+  // Reset futures trade form when switching tabs
+  const resetFuturesForm = () => {
+    setNewFuturesTrade({
+      instrumentType: 'Index',
+      symbol: '',
+      positionType: 'LONG',
+      orderType: 'Market',
+      quantity: 0,
+      entryPrice: 0,
+      triggerPrice: 0,
+      expiryDate: '',
+      dateOfEntry: new Date().toISOString().split('T')[0],
+      notes: ''
+    });
+    setCurrentMarketPrice(0);
+  };
+
+  // Fetch current market price when symbol changes
+  const handleSymbolChange = (symbol: string) => {
+    setNewFuturesTrade({...newFuturesTrade, symbol});
+    
+    // Simulate fetching current market price using existing updateSecurities function
+    if (symbol) {
+      // Generate a realistic price based on symbol (this would normally come from API)
+      const basePrice = symbol === 'NIFTY' ? 19500 : 
+                       symbol === 'BANKNIFTY' ? 44500 :
+                       symbol === 'RELIANCE' ? 2500 :
+                       symbol === 'TCS' ? 3800 :
+                       symbol === 'INFY' ? 1500 : 1000;
+      
+      const randomVariation = (Math.random() - 0.5) * 0.02; // ±1% variation
+      const currentPrice = basePrice * (1 + randomVariation);
+      setCurrentMarketPrice(Math.round(currentPrice));
+      
+      // Auto-fill entry price for Limit orders
+      if (newFuturesTrade.orderType === 'Limit') {
+        setNewFuturesTrade(prev => ({...prev, entryPrice: currentPrice}));
+      }
+    }
+  };
+
+  // Handle order type changes
+  const handleOrderTypeChange = (orderType: 'Market' | 'Limit' | 'Stop-Loss') => {
+    setNewFuturesTrade({...newFuturesTrade, orderType});
+    
+    // Auto-fill prices based on order type
+    if (orderType === 'Limit' && currentMarketPrice > 0) {
+      setNewFuturesTrade(prev => ({...prev, entryPrice: currentMarketPrice}));
+    } else if (orderType === 'Stop-Loss' && currentMarketPrice > 0) {
+      setNewFuturesTrade(prev => ({...prev, triggerPrice: currentMarketPrice}));
+    }
+  };
+
+  // Close futures position
+  const closeFuturesPosition = (positionId: string) => {
+    const position = futuresPositions.find(p => p.id === positionId);
+    if (position) {
+      // Create a closing trade
+      const closingTrade: Trade = {
+        id: Date.now().toString(),
+        securityId: position.contractId,
+        securityName: position.name,
+        type: position.positionType === 'LONG' ? 'CLOSE_LONG' : 'CLOSE_SHORT',
+        quantity: position.quantity,
+        price: position.currentPrice,
+        value: position.quantity * position.currentPrice,
+        date: new Date().toISOString().split('T')[0],
+        commission: 0,
+        notes: 'Position closed',
+        contractSize: 0,
+        marginRequirement: 0,
+        marginUsed: 0,
+        positionType: position.positionType,
+        expirationDate: position.expirationDate,
+        tickSize: 0,
+        tickValue: 0
+      };
+      
+      setTrades([...trades, closingTrade]);
+      
+      // Remove from futures positions
+      setFuturesPositions(prev => prev.filter(p => p.id !== positionId));
+    }
   };
 
   const getPerformanceColor = (value: number) => {
@@ -639,6 +853,7 @@ export default function PortfolioDashboard() {
                     setTradeType('STOCK');
                     setShowTradeForm(!showTradeForm);
                     setShowFuturesForm(false);
+                    if (showFuturesForm) resetFuturesForm();
                   }}
                   className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
                     tradeType === 'STOCK' && showTradeForm
@@ -653,6 +868,7 @@ export default function PortfolioDashboard() {
                     setTradeType('FUTURES');
                     setShowFuturesForm(!showFuturesForm);
                     setShowTradeForm(false);
+                    if (!showFuturesForm) resetFuturesForm();
                   }}
                   className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
                     tradeType === 'FUTURES' && showFuturesForm
@@ -755,135 +971,265 @@ export default function PortfolioDashboard() {
             {/* Futures Trading Form */}
             {showFuturesForm && (
               <div className="p-6 border-b border-gray-700">
-                <div className="mb-4">
-                  <h3 className="text-lg font-medium text-white mb-2">Futures Trading</h3>
-                  {selectedContract && (
-                    <div className="bg-gray-700 rounded-lg p-4 mb-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-400">Contract:</span>
-                          <div className="text-white font-medium">{selectedContract.name}</div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Current Price:</span>
-                          <div className="text-white font-medium">{formatCurrency(selectedContract.currentPrice)}</div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Contract Size:</span>
-                          <div className="text-white font-medium">{formatContractSize(selectedContract.contractSize)}</div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Margin Req:</span>
-                          <div className="text-white font-medium">{(selectedContract.marginRequirement * 100).toFixed(1)}%</div>
-                        </div>
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold text-white mb-4">Futures Trading</h3>
+                  
+                  {/* Instrument Section */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Instrument Section</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Instrument Type</label>
+                        <select
+                          value={newFuturesTrade.instrumentType}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, instrumentType: e.target.value as 'Index' | 'Stock Futures' | 'Commodity Futures'})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="Index">Index</option>
+                          <option value="Stock Futures">Stock Futures</option>
+                          <option value="Commodity Futures">Commodity Futures</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                        <select
+                          value={newFuturesTrade.symbol}
+                          onChange={(e) => handleSymbolChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="">Select Symbol</option>
+                          {availableSymbols.map((symbol) => (
+                            <option key={symbol} value={symbol}>{symbol}</option>
+                          ))}
+                        </select>
+                        {currentMarketPrice > 0 && (
+                          <p className="text-sm text-green-400 mt-1">
+                            Current Market Price: ₹{currentMarketPrice.toLocaleString()}
+                          </p>
+                        )}
                       </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Position Details */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Position Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Position Type</label>
+                        <select
+                          value={newFuturesTrade.positionType}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, positionType: e.target.value as 'LONG' | 'SHORT'})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="LONG">Long</option>
+                          <option value="SHORT">Short</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Order Type</label>
+                        <select
+                          value={newFuturesTrade.orderType}
+                          onChange={(e) => handleOrderTypeChange(e.target.value as 'Market' | 'Limit' | 'Stop-Loss')}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="Market">Market</option>
+                          <option value="Limit">Limit</option>
+                          <option value="Stop-Loss">Stop-Loss</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trade Details */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Trade Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Quantity (Lots/Contracts)</label>
+                        <input
+                          type="number"
+                          value={newFuturesTrade.quantity}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, quantity: Number(e.target.value)})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                          placeholder="1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Entry Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newFuturesTrade.entryPrice}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, entryPrice: Number(e.target.value)})}
+                          className={`w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400 ${
+                            newFuturesTrade.orderType !== 'Limit' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          placeholder="0.00"
+                          disabled={newFuturesTrade.orderType !== 'Limit'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Trigger Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newFuturesTrade.triggerPrice}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, triggerPrice: Number(e.target.value)})}
+                          className={`w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400 ${
+                            newFuturesTrade.orderType !== 'Stop-Loss' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          placeholder="0.00"
+                          disabled={newFuturesTrade.orderType !== 'Stop-Loss'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Expiry Date</label>
+                        <input
+                          type="date"
+                          value={newFuturesTrade.expiryDate}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, expiryDate: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Info */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Additional Info</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Date of Entry</label>
+                        <input
+                          type="date"
+                          value={newFuturesTrade.dateOfEntry}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, dateOfEntry: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Notes (Optional)</label>
+                        <textarea
+                          value={newFuturesTrade.notes}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, notes: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                          placeholder="Trade comments..."
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Index:</label>
-                    <input
-                      type="text"
-                      value={newTrade.securityName}
-                      onChange={(e) => setNewTrade({...newTrade, securityName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="Index"
-                    />
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Position Type</label>
-                    <select
-                      value={newTrade.positionType}
-                      onChange={(e) => setNewTrade({...newTrade, positionType: e.target.value as 'LONG' | 'SHORT'})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
-                    >
-                      <option value="LONG">Long</option>
-                      <option value="SHORT">Short</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Trade Type</label>
-                    <select
-                      value={newTrade.type}
-                      onChange={(e) => setNewTrade({...newTrade, type: e.target.value as 'LONG_FUTURES' | 'SHORT_FUTURES' | 'CLOSE_LONG' | 'CLOSE_SHORT'})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
-                    >
-                      <option value="LONG_FUTURES">Open Long</option>
-                      <option value="SHORT_FUTURES">Open Short</option>
-                      <option value="CLOSE_LONG">Close Long</option>
-                      <option value="CLOSE_SHORT">Close Short</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Quantity</label>
-                    <input
-                      type="number"
-                      value={newTrade.quantity}
-                      onChange={(e) => setNewTrade({...newTrade, quantity: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="1"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Price</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newTrade.price}
-                      onChange={(e) => setNewTrade({...newTrade, price: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder={selectedContract?.currentPrice.toString() || "0.00"}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
-                    <input
-                      type="date"
-                      value={newTrade.date}
-                      onChange={(e) => setNewTrade({...newTrade, date: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Commission</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newTrade.commission}
-                      onChange={(e) => setNewTrade({...newTrade, commission: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="4.50"
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
-                    <input
-                      type="text"
-                      value={newTrade.notes}
-                      onChange={(e) => setNewTrade({...newTrade, notes: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="Trade notes..."
-                    />
-                  </div>
-                </div>
-                
-                <div className="mt-4">
+                <div className="mt-6">
                   <button
-                    onClick={handleAddTrade}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                    onClick={handleFuturesTrade}
+                    disabled={!isFuturesTradeValid()}
+                    className={`inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white ${
+                      isFuturesTradeValid() 
+                        ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500' 
+                        : 'bg-gray-600 cursor-not-allowed opacity-50'
+                    }`}
                   >
-                    Execute Futures Trade
+                    Execute Trade
                   </button>
+                  {!isFuturesTradeValid() && (
+                    <p className="text-sm text-gray-400 mt-2">
+                      Please fill in all required fields to enable trade execution
+                    </p>
+                  )}
                 </div>
               </div>
             )}
+
+            {/* Open Futures Positions */}
+            <div className="p-6 border-b border-gray-700">
+              <h3 className="text-lg font-medium text-white mb-4">Open Futures Positions</h3>
+              
+              {futuresPositions.length > 0 ? (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Total P&L</div>
+                      <div className={`text-lg font-semibold ${getGainLossColor(futuresPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0))}`}>
+                        {formatCurrency(futuresPositions.reduce((sum, p) => sum + p.unrealizedPnL, 0))}
+                      </div>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Total Margin Used</div>
+                      <div className="text-lg font-semibold text-white">
+                        {formatCurrency(futuresPositions.reduce((sum, p) => sum + p.marginUsed, 0))}
+                      </div>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Active Positions</div>
+                      <div className="text-lg font-semibold text-white">
+                        {futuresPositions.length}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-700">
+                      <thead className="bg-gray-700">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Symbol</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position Type</th>
+                                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
+                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
+                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
+                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiry Date</th>
+                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">P&L</th>
+                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
+                         </tr>
+                       </thead>
+                       <tbody className="bg-gray-800 divide-y divide-gray-700">
+                         {futuresPositions.map((position) => (
+                           <tr key={position.id} className="hover:bg-gray-700">
+                             <td className="px-6 py-4 whitespace-nowrap">
+                               <div>
+                                 <div className="text-sm font-medium text-white">{position.symbol}</div>
+                                 <div className="text-sm text-gray-400">{position.name}</div>
+                               </div>
+                             </td>
+                             <td className="px-6 py-4 whitespace-nowrap">
+                               <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
+                                 {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                                 {position.positionType}
+                               </span>
+                             </td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
+                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
+                                {formatCurrency(position.unrealizedPnL)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <button
+                                onClick={() => closeFuturesPosition(position.id)}
+                                className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                              >
+                                Close
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="text-gray-400 text-lg mb-2">No Open Futures Positions</div>
+                  <div className="text-gray-500 text-sm">Open a futures position using the form above to see it here</div>
+                </div>
+              )}
+            </div>
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-700">
