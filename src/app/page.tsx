@@ -176,6 +176,7 @@ export default function PortfolioDashboard() {
   }, []);
 
   const recalculatePortfolio = () => {
+    // --- Step 1: Perform all your calculations as before ---
     const summary = calculatePortfolioSummary(securities, futuresContracts, cashBalances, portfolioSummary.lastUpdated);
     const futuresValue = futuresPositions.reduce((sum, position) => sum + (position.quantity * position.currentPrice), 0);
     const totalMarginUsed = futuresPositions.reduce((sum, position) => sum + position.marginUsed, 0);
@@ -186,7 +187,8 @@ export default function PortfolioDashboard() {
       return sum + pnl;
     }, 0);
 
-    const updatedSummary = {
+    // --- Step 2: Create an object with only the new values ---
+    const newlyCalculatedValues = {
       ...summary,
       futuresValue,
       totalMarginUsed,
@@ -194,11 +196,17 @@ export default function PortfolioDashboard() {
       unrealizedPnL: totalUnrealizedPnL
     };
 
-    setPortfolioSummary(updatedSummary);
+    // --- Step 3: Use the functional update form to safely merge states ---
+    // This is the key change that prevents the error.
+    setPortfolioSummary(previousSummary => ({
+      ...previousSummary,       // First, copy all key-value pairs from the old state
+      ...newlyCalculatedValues, // Then, overwrite with the new values you just calculated
+    }));
+
+    // --- The rest of your function remains the same ---
     const metrics = calculateRiskMetrics(securities);
     setRiskMetrics(metrics);
-  };
-
+};
   useEffect(() => {
     recalculatePortfolio();
   }, [securities, cashBalances, futuresPositions, portfolioSummary.lastUpdated]);
@@ -743,7 +751,12 @@ const handleEmailReport = async () => {
                                 outerRadius={100}
                                 fill="#8884d8"
                                 dataKey="value"
-                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                label={({ name, percent }) => {
+                                  if (percent !== undefined && percent > 0) {
+                                    return `${name} ${(percent * 100).toFixed(0)}%`;
+                                  }
+                                  return ''; 
+                                }}                                
                             >
                                 {assetAllocationData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
