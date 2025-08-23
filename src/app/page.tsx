@@ -740,63 +740,70 @@ export default function PortfolioDashboard() {
           </div>
         </div>
 
-        {/* Futures Positions */}
-        <div className="mt-8">
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h2 className="text-lg font-medium text-white">Futures Positions</h2>
-              <p className="text-sm text-gray-300">Active futures contracts with margin and P&L tracking</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Mark to Market</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Unrealized P&L</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Used</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Leverage</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-gray-800 divide-y divide-gray-700">
-                  {futuresPositions.map((position) => (
-                    <tr key={position.id} className="hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-white">{position.name}</div>
-                          <div className="text-sm text-gray-400">{position.symbol}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
-                          {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                          {position.positionType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.markToMarket)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
-                          {formatCurrency(position.unrealizedPnL)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.leverage.toFixed(1)}x</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+                 {/* Futures Positions */}
+         <div className="mt-8">
+           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+             <div className="px-6 py-4 border-b border-gray-700">
+               <h2 className="text-lg font-medium text-white">Futures Positions</h2>
+               <p className="text-sm text-gray-300">Active futures contracts with margin and P&L tracking</p>
+             </div>
+             <div className="overflow-x-auto">
+               <table className="min-w-full divide-y divide-gray-700">
+                 <thead className="bg-gray-700">
+                   <tr>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Mark to Market</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Unrealized P&L</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Left</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
+                   </tr>
+                 </thead>
+                 <tbody className="bg-gray-800 divide-y divide-gray-700">
+                   {futuresPositions.map((position) => (
+                     <tr key={position.id} className="hover:bg-gray-700">
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <div>
+                           <div className="text-sm font-medium text-white">{position.name}</div>
+                           <div className="text-sm text-gray-400">{position.symbol}</div>
+                         </div>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
+                           {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                           {position.positionType}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.quantity * position.currentPrice)}</td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
+                           {formatCurrency(position.unrealizedPnL)}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(portfolioSummary.availableMargin)}</td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <button
+                           onClick={() => closeFuturesPosition(position.id)}
+                           className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                         >
+                           Close
+                         </button>
+                       </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+             </div>
+           </div>
+         </div>
 
         {/* Benchmark Performance */}
         <div className="mt-8">
