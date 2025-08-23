@@ -118,7 +118,8 @@ export default function PortfolioDashboard() {
     triggerPrice: 0,
     expiryDate: '',
     dateOfEntry: new Date().toISOString().split('T')[0],
-    notes: ''
+    notes: '',
+    leverage: 10
   });
   
   // Selected futures contract for trade form
@@ -295,6 +296,16 @@ export default function PortfolioDashboard() {
   // Handle futures trade execution
   const handleFuturesTrade = () => {
     if (newFuturesTrade.symbol && newFuturesTrade.quantity > 0) {
+      const executionPrice = newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice;
+      const contractValue = newFuturesTrade.quantity * executionPrice;
+      const initialMargin = contractValue / newFuturesTrade.leverage; // Margin = Contract Value / Leverage
+      
+      // Check if user has enough cash for margin
+      if (portfolioSummary.cashValue < initialMargin) {
+        alert('Insufficient cash for margin requirement');
+        return;
+      }
+
       // Create a new futures trade
       const trade: Trade = {
         id: Date.now().toString(),
@@ -302,14 +313,14 @@ export default function PortfolioDashboard() {
         securityName: `${newFuturesTrade.instrumentType} - ${newFuturesTrade.symbol}`,
         type: newFuturesTrade.positionType === 'LONG' ? 'LONG_FUTURES' : 'SHORT_FUTURES',
         quantity: newFuturesTrade.quantity,
-        price: newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice,
-        value: newFuturesTrade.quantity * (newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice),
+        price: executionPrice,
+        value: contractValue,
         date: newFuturesTrade.dateOfEntry,
         commission: 0,
         notes: newFuturesTrade.notes,
         contractSize: 0,
-        marginRequirement: 0,
-        marginUsed: 0,
+        marginRequirement: initialMargin,
+        marginUsed: initialMargin,
         positionType: newFuturesTrade.positionType,
         expirationDate: newFuturesTrade.expiryDate,
         tickSize: 0,
@@ -326,13 +337,13 @@ export default function PortfolioDashboard() {
         symbol: newFuturesTrade.symbol,
         positionType: newFuturesTrade.positionType,
         quantity: newFuturesTrade.quantity,
-        entryPrice: newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice,
-        currentPrice: newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice,
-        markToMarket: newFuturesTrade.quantity * (newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice),
+        entryPrice: executionPrice,
+        currentPrice: executionPrice,
+        markToMarket: contractValue,
         unrealizedPnL: 0,
-        marginUsed: 0,
-        marginRequirement: 0.1, // 10% margin requirement
-        leverage: 1.0,
+        marginUsed: initialMargin,
+        marginRequirement: initialMargin,
+        leverage: newFuturesTrade.leverage,
         entryDate: newFuturesTrade.dateOfEntry,
         expirationDate: newFuturesTrade.expiryDate,
         tickSize: 0.01,
@@ -342,6 +353,18 @@ export default function PortfolioDashboard() {
       // Update futures positions state
       const updatedFuturesPositions = [...futuresPositions, newFuturesPosition];
       setFuturesPositions(updatedFuturesPositions);
+      
+      // Update cash balance by deducting margin
+      setCashBalances(prev => prev.map(balance => {
+        if (balance.currency === 'USD') {
+          return {
+            ...balance,
+            amount: balance.amount - initialMargin,
+            usdEquivalent: balance.usdEquivalent - initialMargin
+          };
+        }
+        return balance;
+      }));
       
       // Reset form
       setNewFuturesTrade({
@@ -354,10 +377,14 @@ export default function PortfolioDashboard() {
         triggerPrice: 0,
         expiryDate: '',
         dateOfEntry: new Date().toISOString().split('T')[0],
-        notes: ''
+        notes: '',
+        leverage: 10
       });
       setCurrentMarketPrice(0);
       setShowFuturesForm(false);
+      
+      // Update portfolio summary
+      setTimeout(() => recalculatePortfolio(), 0);
     }
   };
 
@@ -365,6 +392,12 @@ export default function PortfolioDashboard() {
   const isFuturesTradeValid = () => {
     const basicValid = newFuturesTrade.symbol && 
                       newFuturesTrade.quantity > 0;
+    
+    if (!basicValid) return false;
+    
+    // Check if user has enough cash for margin
+    const requiredMargin = (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage;
+    if (portfolioSummary.cashValue < requiredMargin) return false;
     
     if (newFuturesTrade.orderType === 'Limit') {
       return basicValid && newFuturesTrade.entryPrice > 0;
@@ -389,7 +422,8 @@ export default function PortfolioDashboard() {
       triggerPrice: 0,
       expiryDate: '',
       dateOfEntry: new Date().toISOString().split('T')[0],
-      notes: ''
+      notes: '',
+      leverage: 10
     });
     setCurrentMarketPrice(0);
   };
@@ -434,6 +468,10 @@ export default function PortfolioDashboard() {
   const closeFuturesPosition = (positionId: string) => {
     const position = futuresPositions.find(p => p.id === positionId);
     if (position) {
+      // Calculate final P&L and margin return
+      const finalPnL = position.unrealizedPnL;
+      const marginReturn = position.marginUsed + finalPnL; // Return initial margin + P&L
+      
       // Create a closing trade
       const closingTrade: Trade = {
         id: Date.now().toString(),
@@ -459,6 +497,18 @@ export default function PortfolioDashboard() {
       
       // Remove from futures positions
       setFuturesPositions(prev => prev.filter(p => p.id !== positionId));
+      
+      // Return margin and P&L to cash balance
+      setCashBalances(prev => prev.map(balance => {
+        if (balance.currency === 'USD') {
+          return {
+            ...balance,
+            amount: balance.amount + marginReturn,
+            usdEquivalent: balance.usdEquivalent + marginReturn
+          };
+        }
+        return balance;
+      }));
       
       // Update portfolio summary to reflect margin release
       setTimeout(() => recalculatePortfolio(), 0);
@@ -563,9 +613,9 @@ export default function PortfolioDashboard() {
                 <Gauge className="h-6 w-6 text-yellow-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-300">Margin Used</p>
+                <p className="text-sm font-medium text-gray-300">Initial Margin</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.totalMarginUsed)}</p>
-                <p className="text-sm text-gray-400">{portfolioSummary.marginUtilizationPercent.toFixed(1)}% of cash</p>
+                <p className="text-sm text-gray-400">Total margin used</p>
               </div>
             </div>
           </div>
@@ -576,8 +626,9 @@ export default function PortfolioDashboard() {
                 <TrendingUp className="h-6 w-6 text-green-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-300">Available Margin</p>
+                <p className="text-sm font-medium text-gray-300">Remaining Margin</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.availableMargin)}</p>
+                <p className="text-sm text-gray-400">Available for trading</p>
               </div>
             </div>
           </div>
@@ -758,7 +809,8 @@ export default function PortfolioDashboard() {
                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Mark to Market</th>
                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Unrealized P&L</th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Left</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Initial Margin</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Remaining Margin</th>
                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
                    </tr>
@@ -787,7 +839,8 @@ export default function PortfolioDashboard() {
                            {formatCurrency(position.unrealizedPnL)}
                          </span>
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(portfolioSummary.availableMargin)}</td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed + position.unrealizedPnL)}</td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
                        <td className="px-6 py-4 whitespace-nowrap">
                          <button
@@ -1024,7 +1077,7 @@ export default function PortfolioDashboard() {
                   {/* Position Details */}
                   <div className="bg-gray-700 rounded-lg p-4 mb-6">
                     <h4 className="text-lg font-medium text-white mb-4">Position Details</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">Position Type</label>
                         <select
@@ -1046,6 +1099,19 @@ export default function PortfolioDashboard() {
                           <option value="Market">Market</option>
                           <option value="Limit">Limit</option>
                           <option value="Stop-Loss">Stop-Loss</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Leverage</label>
+                        <select
+                          value={newFuturesTrade.leverage}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, leverage: parseInt(e.target.value)})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value={5}>5x</option>
+                          <option value={10}>10x</option>
+                          <option value={20}>20x</option>
+                          <option value={50}>50x</option>
                         </select>
                       </div>
                     </div>
@@ -1132,6 +1198,37 @@ export default function PortfolioDashboard() {
                   </div>
                 </div>
                 
+                {/* Margin Calculation Display */}
+                {newFuturesTrade.symbol && newFuturesTrade.quantity > 0 && currentMarketPrice > 0 && (
+                  <div className="bg-gray-600 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Margin Calculation</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-400">Contract Value</div>
+                        <div className="text-lg font-semibold text-white">
+                          {formatCurrency(newFuturesTrade.quantity * currentMarketPrice)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-400">Leverage</div>
+                        <div className="text-lg font-semibold text-white">{newFuturesTrade.leverage}x</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-400">Required Margin</div>
+                        <div className="text-lg font-semibold text-yellow-400">
+                          {formatCurrency((newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-500">
+                      <div className="text-sm text-gray-400">Available Cash: {formatCurrency(portfolioSummary.cashValue)}</div>
+                      {portfolioSummary.cashValue < (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage && (
+                        <div className="text-sm text-red-400 mt-1">⚠️ Insufficient cash for margin requirement</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="mt-6">
                   <button
                     onClick={handleFuturesTrade}
@@ -1146,7 +1243,12 @@ export default function PortfolioDashboard() {
                   </button>
                   {!isFuturesTradeValid() && (
                     <p className="text-sm text-gray-400 mt-2">
-                      Please fill in all required fields to enable trade execution
+                      {!newFuturesTrade.symbol ? 'Please select a symbol' :
+                       newFuturesTrade.quantity <= 0 ? 'Please enter a valid quantity' :
+                       portfolioSummary.cashValue < (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage ? 'Insufficient cash for margin requirement' :
+                       newFuturesTrade.orderType === 'Limit' && newFuturesTrade.entryPrice <= 0 ? 'Please enter entry price for Limit order' :
+                       newFuturesTrade.orderType === 'Stop-Loss' && newFuturesTrade.triggerPrice <= 0 ? 'Please enter trigger price for Stop-Loss order' :
+                       'Please fill in all required fields to enable trade execution'}
                     </p>
                   )}
                 </div>
