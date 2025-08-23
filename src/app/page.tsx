@@ -81,7 +81,7 @@ export default function PortfolioDashboard() {
   const [portfolioSummary, setPortfolioSummary] = useState(mockPortfolioSummary);
   const [riskMetrics, setRiskMetrics] = useState(mockRiskMetrics);
   const [futuresContracts] = useState<FuturesContract[]>(mockFuturesContracts);
-  const [futuresPositions] = useState<FuturesPosition[]>(mockFuturesPositions);
+  const [futuresPositions, setFuturesPositions] = useState<FuturesPosition[]>(mockFuturesPositions);
   
   // UI state management
   const [showTradeForm, setShowTradeForm] = useState(false);
@@ -106,30 +106,99 @@ export default function PortfolioDashboard() {
     tickSize: 0,
     tickValue: 0
   });
+
+  // New futures trade form state
+  const [newFuturesTrade, setNewFuturesTrade] = useState({
+    instrumentType: 'Index' as 'Index' | 'Stock Futures' | 'Commodity Futures',
+    symbol: '',
+    positionType: 'LONG' as 'LONG' | 'SHORT',
+    orderType: 'Market' as 'Market' | 'Limit' | 'Stop-Loss',
+    quantity: 0,
+    entryPrice: 0,
+    triggerPrice: 0,
+    expiryDate: '',
+    dateOfEntry: new Date().toISOString().split('T')[0],
+    notes: '',
+    leverage: 10
+  });
   
   // Selected futures contract for trade form
   const [selectedContract, setSelectedContract] = useState<FuturesContract | null>(null);
+  
+  // Available symbols for futures trading
+  const [availableSymbols] = useState([
+    'NIFTY', 'BANKNIFTY', 'RELIANCE', 'TCS', 'INFY', 'HDFC', 'ICICIBANK', 'HINDUNILVR',
+    'ITC', 'BHARTIARTL', 'AXISBANK', 'KOTAKBANK', 'ASIANPAINT', 'MARUTI', 'SUNPHARMA'
+  ]);
+  
+  // Current market price for selected symbol
+  const [currentMarketPrice, setCurrentMarketPrice] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setSecurities((prev) => updateSecurities(prev));
       setCashBalances((prev) => updateExchangeRates(prev));
-    }, 10000); // updates every 1 second
+      
+      // Update futures positions with real-time prices
+      setFuturesPositions((prev) => 
+        prev.map(position => {
+          // Simulate price updates for futures positions
+          const basePrice = position.entryPrice;
+          const randomVariation = (Math.random() - 0.5) * 0.01; // ±0.5% variation
+          const newPrice = basePrice * (1 + randomVariation);
+          
+          // Calculate proper mark-to-market value
+          const newMarkToMarket = position.quantity * newPrice;
+          
+          // Calculate unrealized P&L based on position type
+          const newPnL = position.positionType === 'LONG' 
+            ? (newPrice - position.entryPrice) * position.quantity
+            : (position.entryPrice - newPrice) * position.quantity;
+          
+          return {
+            ...position,
+            currentPrice: newPrice,
+            markToMarket: newMarkToMarket,
+            unrealizedPnL: newPnL
+          };
+        })
+      );
+    }, 10000); // updates every 10 seconds
 
     return () => clearInterval(interval); // cleanup
   }, []);
 
   const recalculatePortfolio = () => {
      const summary = calculatePortfolioSummary(securities, futuresContracts, cashBalances, portfolioSummary.lastUpdated);
-      setPortfolioSummary(summary);
-      const metrics = calculateRiskMetrics(securities);
-      setRiskMetrics(metrics);
+     
+     // Calculate futures-specific metrics from futuresPositions
+     const futuresValue = futuresPositions.reduce((sum, position) => sum + (position.quantity * position.currentPrice), 0);
+     const totalMarginUsed = futuresPositions.reduce((sum, position) => sum + position.marginUsed, 0);
+     const totalUnrealizedPnL = futuresPositions.reduce((sum, position) => {
+       const pnl = position.positionType === 'LONG' 
+         ? (position.currentPrice - position.entryPrice) * position.quantity
+         : (position.entryPrice - position.currentPrice) * position.quantity;
+       return sum + pnl;
+     }, 0);
+     
+     // Update summary with futures position data
+     const updatedSummary = {
+       ...summary,
+       futuresValue,
+       totalMarginUsed,
+       availableMargin: summary.cashValue - totalMarginUsed,
+       unrealizedPnL: totalUnrealizedPnL
+     };
+     
+     setPortfolioSummary(updatedSummary);
+     const metrics = calculateRiskMetrics(securities);
+     setRiskMetrics(metrics);
   };
 
   // Initial portfolio calculation on component mount
   useEffect(() => {
     recalculatePortfolio();
-  },[securities, cashBalances, portfolioSummary.lastUpdated]); 
+  },[securities, cashBalances, futuresPositions, portfolioSummary.lastUpdated]); 
 
   /**
    * Handle adding new trades to the portfolio
@@ -231,8 +300,8 @@ export default function PortfolioDashboard() {
   };
 
   const handleSell = (id: string) => {
-  setSecurities(prev => prev.filter(sec => sec.id !== id));
-};
+    setSecurities(prev => prev.filter(sec => sec.id !== id));
+  };
 
   const handleContractSelect = (contract: FuturesContract) => {
     setSelectedContract(contract);
@@ -246,6 +315,230 @@ export default function PortfolioDashboard() {
       tickValue: contract.tickValue,
       price: contract.currentPrice
     });
+  };
+
+  // Handle futures trade execution
+  const handleFuturesTrade = () => {
+    if (newFuturesTrade.symbol && newFuturesTrade.quantity > 0) {
+      const executionPrice = newFuturesTrade.orderType === 'Market' ? currentMarketPrice : newFuturesTrade.entryPrice;
+      const contractValue = newFuturesTrade.quantity * executionPrice;
+      const initialMargin = contractValue / newFuturesTrade.leverage; // Margin = Contract Value / Leverage
+      
+      // Check if user has enough cash for margin
+      if (portfolioSummary.cashValue < initialMargin) {
+        alert('Insufficient cash for margin requirement');
+        return;
+      }
+
+      // Create a new futures trade
+      const trade: Trade = {
+        id: Date.now().toString(),
+        securityId: Date.now().toString(),
+        securityName: `${newFuturesTrade.instrumentType} - ${newFuturesTrade.symbol}`,
+        type: newFuturesTrade.positionType === 'LONG' ? 'LONG_FUTURES' : 'SHORT_FUTURES',
+        quantity: newFuturesTrade.quantity,
+        price: executionPrice,
+        value: contractValue,
+        date: newFuturesTrade.dateOfEntry,
+        commission: 0,
+        notes: newFuturesTrade.notes,
+        contractSize: 0,
+        marginRequirement: initialMargin,
+        marginUsed: initialMargin,
+        positionType: newFuturesTrade.positionType,
+        expirationDate: newFuturesTrade.expiryDate,
+        tickSize: 0,
+        tickValue: 0
+      };
+
+      setTrades([...trades, trade]);
+      
+      // Add to futures positions for Open Futures display
+      const newFuturesPosition: FuturesPosition = {
+        id: Date.now().toString(),
+        contractId: Date.now().toString(),
+        name: `${newFuturesTrade.instrumentType} - ${newFuturesTrade.symbol}`,
+        symbol: newFuturesTrade.symbol,
+        positionType: newFuturesTrade.positionType,
+        quantity: newFuturesTrade.quantity,
+        entryPrice: executionPrice,
+        currentPrice: executionPrice,
+        markToMarket: contractValue,
+        unrealizedPnL: 0, // Initially 0 since entry price = current price
+        marginUsed: initialMargin,
+        marginRequirement: initialMargin,
+        leverage: newFuturesTrade.leverage,
+        entryDate: newFuturesTrade.dateOfEntry,
+        expirationDate: newFuturesTrade.expiryDate,
+        tickSize: 0.01,
+        tickValue: 0.01
+      };
+      
+      // Update futures positions state
+      const updatedFuturesPositions = [...futuresPositions, newFuturesPosition];
+      setFuturesPositions(updatedFuturesPositions);
+      
+      // Update cash balance by deducting margin
+      setCashBalances(prev => prev.map(balance => {
+        if (balance.currency === 'USD') {
+          return {
+            ...balance,
+            amount: balance.amount - initialMargin,
+            usdEquivalent: balance.usdEquivalent - initialMargin
+          };
+        }
+        return balance;
+      }));
+      
+      // Reset form
+      setNewFuturesTrade({
+        instrumentType: 'Index',
+        symbol: '',
+        positionType: 'LONG',
+        orderType: 'Market',
+        quantity: 0,
+        entryPrice: 0,
+        triggerPrice: 0,
+        expiryDate: '',
+        dateOfEntry: new Date().toISOString().split('T')[0],
+        notes: '',
+        leverage: 10
+      });
+      setCurrentMarketPrice(0);
+      setShowFuturesForm(false);
+      
+      // Update portfolio summary
+      setTimeout(() => recalculatePortfolio(), 0);
+    }
+  };
+
+  // Check if futures trade form is valid
+  const isFuturesTradeValid = () => {
+    const basicValid = newFuturesTrade.symbol && 
+                      newFuturesTrade.quantity > 0;
+    
+    if (!basicValid) return false;
+    
+    // Check if user has enough cash for margin
+    const requiredMargin = (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage;
+    if (portfolioSummary.cashValue < requiredMargin) return false;
+    
+    if (newFuturesTrade.orderType === 'Limit') {
+      return basicValid && newFuturesTrade.entryPrice > 0;
+    }
+    
+    if (newFuturesTrade.orderType === 'Stop-Loss') {
+      return basicValid && newFuturesTrade.triggerPrice > 0;
+    }
+    
+    return basicValid;
+  };
+
+  // Reset futures trade form when switching tabs
+  const resetFuturesForm = () => {
+    setNewFuturesTrade({
+      instrumentType: 'Index',
+      symbol: '',
+      positionType: 'LONG',
+      orderType: 'Market',
+      quantity: 0,
+      entryPrice: 0,
+      triggerPrice: 0,
+      expiryDate: '',
+      dateOfEntry: new Date().toISOString().split('T')[0],
+      notes: '',
+      leverage: 10
+    });
+    setCurrentMarketPrice(0);
+  };
+
+  // Fetch current market price when symbol changes
+  const handleSymbolChange = (symbol: string) => {
+    setNewFuturesTrade({...newFuturesTrade, symbol});
+    
+    // Simulate fetching current market price using existing updateSecurities function
+    if (symbol) {
+      // Generate a realistic price based on symbol (this would normally come from API)
+      const basePrice = symbol === 'NIFTY' ? 19500 : 
+                       symbol === 'BANKNIFTY' ? 44500 :
+                       symbol === 'RELIANCE' ? 2500 :
+                       symbol === 'TCS' ? 3800 :
+                       symbol === 'INFY' ? 1500 : 1000;
+      
+      const randomVariation = (Math.random() - 0.5) * 0.02; // ±1% variation
+      const currentPrice = basePrice * (1 + randomVariation);
+      setCurrentMarketPrice(Math.round(currentPrice));
+      
+      // Auto-fill entry price for Limit orders
+      if (newFuturesTrade.orderType === 'Limit') {
+        setNewFuturesTrade(prev => ({...prev, entryPrice: currentPrice}));
+      }
+    }
+  };
+
+  // Handle order type changes
+  const handleOrderTypeChange = (orderType: 'Market' | 'Limit' | 'Stop-Loss') => {
+    setNewFuturesTrade({...newFuturesTrade, orderType});
+    
+    // Auto-fill prices based on order type
+    if (orderType === 'Limit' && currentMarketPrice > 0) {
+      setNewFuturesTrade(prev => ({...prev, entryPrice: currentMarketPrice}));
+    } else if (orderType === 'Stop-Loss' && currentMarketPrice > 0) {
+      setNewFuturesTrade(prev => ({...prev, triggerPrice: currentMarketPrice}));
+    }
+  };
+
+  // Close futures position
+  const closeFuturesPosition = (positionId: string) => {
+    const position = futuresPositions.find(p => p.id === positionId);
+    if (position) {
+      // Calculate final P&L and margin return
+      const finalPnL = position.positionType === 'LONG' 
+        ? (position.currentPrice - position.entryPrice) * position.quantity
+        : (position.entryPrice - position.currentPrice) * position.quantity;
+      const marginReturn = position.marginUsed + finalPnL; // Return initial margin + P&L
+      
+      // Create a closing trade
+      const closingTrade: Trade = {
+        id: Date.now().toString(),
+        securityId: position.contractId,
+        securityName: position.name,
+        type: position.positionType === 'LONG' ? 'CLOSE_LONG' : 'CLOSE_SHORT',
+        quantity: position.quantity,
+        price: position.currentPrice,
+        value: position.quantity * position.currentPrice,
+        date: new Date().toISOString().split('T')[0],
+        commission: 0,
+        notes: 'Position closed',
+        contractSize: 0,
+        marginRequirement: 0,
+        marginUsed: 0,
+        positionType: position.positionType,
+        expirationDate: position.expirationDate,
+        tickSize: 0,
+        tickValue: 0
+      };
+      
+      setTrades([...trades, closingTrade]);
+      
+      // Remove from futures positions
+      setFuturesPositions(prev => prev.filter(p => p.id !== positionId));
+      
+      // Return margin and P&L to cash balance
+      setCashBalances(prev => prev.map(balance => {
+        if (balance.currency === 'USD') {
+          return {
+            ...balance,
+            amount: balance.amount + marginReturn,
+            usdEquivalent: balance.usdEquivalent + marginReturn
+          };
+        }
+        return balance;
+      }));
+      
+      // Update portfolio summary to reflect margin release
+      setTimeout(() => recalculatePortfolio(), 0);
+    }
   };
 
   const getPerformanceColor = (value: number) => {
@@ -346,9 +639,9 @@ export default function PortfolioDashboard() {
                 <Gauge className="h-6 w-6 text-yellow-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-300">Margin Used</p>
+                <p className="text-sm font-medium text-gray-300">Initial Margin</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.totalMarginUsed)}</p>
-                <p className="text-sm text-gray-400">{portfolioSummary.marginUtilizationPercent.toFixed(1)}% of cash</p>
+                <p className="text-sm text-gray-400">Total margin used</p>
               </div>
             </div>
           </div>
@@ -359,8 +652,9 @@ export default function PortfolioDashboard() {
                 <TrendingUp className="h-6 w-6 text-green-400" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-300">Available Margin</p>
+                <p className="text-sm font-medium text-gray-300">Remaining Margin</p>
                 <p className="text-2xl font-bold text-white">{formatCurrency(portfolioSummary.availableMargin)}</p>
+                <p className="text-sm text-gray-400">Available for trading</p>
               </div>
             </div>
           </div>
@@ -523,63 +817,83 @@ export default function PortfolioDashboard() {
           </div>
         </div>
 
-        {/* Futures Positions */}
-        <div className="mt-8">
-          <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h2 className="text-lg font-medium text-white">Futures Positions</h2>
-              <p className="text-sm text-gray-300">Active futures contracts with margin and P&L tracking</p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Mark to Market</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Unrealized P&L</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Margin Used</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Leverage</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-gray-800 divide-y divide-gray-700">
-                  {futuresPositions.map((position) => (
-                    <tr key={position.id} className="hover:bg-gray-700">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-white">{position.name}</div>
-                          <div className="text-sm text-gray-400">{position.symbol}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
-                          {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                          {position.positionType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.markToMarket)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
-                          {formatCurrency(position.unrealizedPnL)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.leverage.toFixed(1)}x</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+                 {/* Futures Positions */}
+         <div className="mt-8">
+           <div className="bg-gray-800 rounded-lg shadow-lg border border-gray-700">
+             <div className="px-6 py-4 border-b border-gray-700">
+               <h2 className="text-lg font-medium text-white">Futures Positions</h2>
+               <p className="text-sm text-gray-300">Active futures contracts with margin and P&L tracking</p>
+             </div>
+             <div className="overflow-x-auto">
+               <table className="min-w-full divide-y divide-gray-700">
+                 <thead className="bg-gray-700">
+                   <tr>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Contract</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Position</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Quantity</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Entry Price</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Current Price</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Mark to Market</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Unrealized P&L</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Initial Margin</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Remaining Margin</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Expiration</th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Action</th>
+                   </tr>
+                 </thead>
+                 <tbody className="bg-gray-800 divide-y divide-gray-700">
+                   {futuresPositions.map((position) => {
+                     // Calculate proper mark-to-market value
+                     const markToMarketValue = position.quantity * position.currentPrice;
+                     // Calculate unrealized P&L based on position type
+                     const unrealizedPnL = position.positionType === 'LONG' 
+                       ? (position.currentPrice - position.entryPrice) * position.quantity
+                       : (position.entryPrice - position.currentPrice) * position.quantity;
+                     // Calculate remaining margin: Initial Margin + Unrealized P&L
+                     const remainingMargin = position.marginUsed + unrealizedPnL;
+                     
+                     return (
+                       <tr key={position.id} className="hover:bg-gray-700">
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <div>
+                             <div className="text-sm font-medium text-white">{position.name}</div>
+                             <div className="text-sm text-gray-400">{position.symbol}</div>
+                           </div>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
+                             {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                             {position.positionType}
+                           </span>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(markToMarketValue)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <span className={`text-sm font-medium ${getGainLossColor(unrealizedPnL)}`}>
+                             {formatCurrency(unrealizedPnL)}
+                           </span>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(remainingMargin)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <button
+                             onClick={() => closeFuturesPosition(position.id)}
+                             className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                           >
+                             Close
+                           </button>
+                         </td>
+                       </tr>
+                     );
+                   })}
+                 </tbody>
+               </table>
+             </div>
+           </div>
+         </div>
 
         {/* Benchmark Performance */}
         <div className="mt-8">
@@ -639,6 +953,7 @@ export default function PortfolioDashboard() {
                     setTradeType('STOCK');
                     setShowTradeForm(!showTradeForm);
                     setShowFuturesForm(false);
+                    if (showFuturesForm) resetFuturesForm();
                   }}
                   className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
                     tradeType === 'STOCK' && showTradeForm
@@ -653,6 +968,7 @@ export default function PortfolioDashboard() {
                     setTradeType('FUTURES');
                     setShowFuturesForm(!showFuturesForm);
                     setShowTradeForm(false);
+                    if (!showFuturesForm) resetFuturesForm();
                   }}
                   className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${
                     tradeType === 'FUTURES' && showFuturesForm
@@ -755,135 +1071,237 @@ export default function PortfolioDashboard() {
             {/* Futures Trading Form */}
             {showFuturesForm && (
               <div className="p-6 border-b border-gray-700">
-                <div className="mb-4">
-                  <h3 className="text-lg font-medium text-white mb-2">Futures Trading</h3>
-                  {selectedContract && (
-                    <div className="bg-gray-700 rounded-lg p-4 mb-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-400">Contract:</span>
-                          <div className="text-white font-medium">{selectedContract.name}</div>
+                <div className="mb-6">
+                  <h3 className="text-xl font-semibold text-white mb-4">Futures Trading</h3>
+                  
+                  {/* Instrument Section */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Instrument Section</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Instrument Type</label>
+                        <select
+                          value={newFuturesTrade.instrumentType}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, instrumentType: e.target.value as 'Index' | 'Stock Futures' | 'Commodity Futures'})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="Index">Index</option>
+                          <option value="Stock Futures">Stock Futures</option>
+                          <option value="Commodity Futures">Commodity Futures</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Symbol</label>
+                        <select
+                          value={newFuturesTrade.symbol}
+                          onChange={(e) => handleSymbolChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="">Select Symbol</option>
+                          {availableSymbols.map((symbol) => (
+                            <option key={symbol} value={symbol}>{symbol}</option>
+                          ))}
+                        </select>
+                        {currentMarketPrice > 0 && (
+                          <p className="text-sm text-green-400 mt-1">
+                            Current Market Price: ₹{currentMarketPrice.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Position Details */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Position Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Position Type</label>
+                        <select
+                          value={newFuturesTrade.positionType}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, positionType: e.target.value as 'LONG' | 'SHORT'})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="LONG">Long</option>
+                          <option value="SHORT">Short</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Order Type</label>
+                        <select
+                          value={newFuturesTrade.orderType}
+                          onChange={(e) => handleOrderTypeChange(e.target.value as 'Market' | 'Limit' | 'Stop-Loss')}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value="Market">Market</option>
+                          <option value="Limit">Limit</option>
+                          <option value="Stop-Loss">Stop-Loss</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Leverage</label>
+                        <select
+                          value={newFuturesTrade.leverage}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, leverage: parseInt(e.target.value)})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        >
+                          <option value={5}>5x</option>
+                          <option value={10}>10x</option>
+                          <option value={20}>20x</option>
+                          <option value={50}>50x</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trade Details */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Trade Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Quantity (Lots/Contracts)</label>
+                        <input
+                          type="number"
+                          value={newFuturesTrade.quantity}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, quantity: Number(e.target.value)})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                          placeholder="1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Entry Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newFuturesTrade.entryPrice}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, entryPrice: Number(e.target.value)})}
+                          className={`w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400 ${
+                            newFuturesTrade.orderType !== 'Limit' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          placeholder="0.00"
+                          disabled={newFuturesTrade.orderType !== 'Limit'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Trigger Price</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newFuturesTrade.triggerPrice}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, triggerPrice: Number(e.target.value)})}
+                          className={`w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400 ${
+                            newFuturesTrade.orderType !== 'Stop-Loss' ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          placeholder="0.00"
+                          disabled={newFuturesTrade.orderType !== 'Stop-Loss'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Expiry Date</label>
+                        <input
+                          type="date"
+                          value={newFuturesTrade.expiryDate}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, expiryDate: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Info */}
+                  <div className="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Additional Info</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Date of Entry</label>
+                        <input
+                          type="date"
+                          value={newFuturesTrade.dateOfEntry}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, dateOfEntry: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">Notes (Optional)</label>
+                        <textarea
+                          value={newFuturesTrade.notes}
+                          onChange={(e) => setNewFuturesTrade({...newFuturesTrade, notes: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
+                          placeholder="Trade comments..."
+                          rows={2}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Margin Calculation Display */}
+                {newFuturesTrade.symbol && newFuturesTrade.quantity > 0 && currentMarketPrice > 0 && (
+                  <div className="bg-gray-600 rounded-lg p-4 mb-6">
+                    <h4 className="text-lg font-medium text-white mb-4">Margin Calculation</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-400">Contract Value</div>
+                        <div className="text-lg font-semibold text-white">
+                          {formatCurrency(newFuturesTrade.quantity * currentMarketPrice)}
                         </div>
-                        <div>
-                          <span className="text-gray-400">Current Price:</span>
-                          <div className="text-white font-medium">{formatCurrency(selectedContract.currentPrice)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-400">Leverage</div>
+                        <div className="text-lg font-semibold text-white">{newFuturesTrade.leverage}x</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-400">Required Margin</div>
+                        <div className="text-lg font-semibold text-yellow-400">
+                          {formatCurrency((newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage)}
                         </div>
-                        <div>
-                          <span className="text-gray-400">Contract Size:</span>
-                          <div className="text-white font-medium">{formatContractSize(selectedContract.contractSize)}</div>
-                        </div>
-                        <div>
-                          <span className="text-gray-400">Margin Req:</span>
-                          <div className="text-white font-medium">{(selectedContract.marginRequirement * 100).toFixed(1)}%</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-400">Margin %</div>
+                        <div className="text-lg font-semibold text-blue-400">
+                          {(100 / newFuturesTrade.leverage).toFixed(1)}%
                         </div>
                       </div>
                     </div>
-                  )}
-                </div>
+                    <div className="mt-3 pt-3 border-t border-gray-500">
+                      <div className="text-sm text-gray-400">Available Cash: {formatCurrency(portfolioSummary.cashValue)}</div>
+                      {portfolioSummary.cashValue < (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage && (
+                        <div className="text-sm text-red-400 mt-1">⚠️ Insufficient cash for margin requirement</div>
+                      )}
+                      {portfolioSummary.cashValue >= (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage && (
+                        <div className="text-sm text-green-400 mt-1">✅ Sufficient cash available</div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Index:</label>
-                    <input
-                      type="text"
-                      value={newTrade.securityName}
-                      onChange={(e) => setNewTrade({...newTrade, securityName: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="Index"
-                    />
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Position Type</label>
-                    <select
-                      value={newTrade.positionType}
-                      onChange={(e) => setNewTrade({...newTrade, positionType: e.target.value as 'LONG' | 'SHORT'})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
-                    >
-                      <option value="LONG">Long</option>
-                      <option value="SHORT">Short</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Trade Type</label>
-                    <select
-                      value={newTrade.type}
-                      onChange={(e) => setNewTrade({...newTrade, type: e.target.value as 'LONG_FUTURES' | 'SHORT_FUTURES' | 'CLOSE_LONG' | 'CLOSE_SHORT'})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
-                    >
-                      <option value="LONG_FUTURES">Open Long</option>
-                      <option value="SHORT_FUTURES">Open Short</option>
-                      <option value="CLOSE_LONG">Close Long</option>
-                      <option value="CLOSE_SHORT">Close Short</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Quantity</label>
-                    <input
-                      type="number"
-                      value={newTrade.quantity}
-                      onChange={(e) => setNewTrade({...newTrade, quantity: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="1"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Price</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newTrade.price}
-                      onChange={(e) => setNewTrade({...newTrade, price: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder={selectedContract?.currentPrice.toString() || "0.00"}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
-                    <input
-                      type="date"
-                      value={newTrade.date}
-                      onChange={(e) => setNewTrade({...newTrade, date: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Commission</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newTrade.commission}
-                      onChange={(e) => setNewTrade({...newTrade, commission: Number(e.target.value)})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="4.50"
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
-                    <input
-                      type="text"
-                      value={newTrade.notes}
-                      onChange={(e) => setNewTrade({...newTrade, notes: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-700 text-white placeholder-gray-400"
-                      placeholder="Trade notes..."
-                    />
-                  </div>
-                </div>
-                
-                <div className="mt-4">
+                <div className="mt-6">
                   <button
-                    onClick={handleAddTrade}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                    onClick={handleFuturesTrade}
+                    disabled={!isFuturesTradeValid()}
+                    className={`inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-md text-white ${
+                      isFuturesTradeValid() 
+                        ? 'bg-indigo-600 hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500' 
+                        : 'bg-gray-600 cursor-not-allowed opacity-50'
+                    }`}
                   >
-                    Execute Futures Trade
+                    Execute Trade
                   </button>
+                  {!isFuturesTradeValid() && (
+                    <p className="text-sm text-gray-400 mt-2">
+                      {!newFuturesTrade.symbol ? 'Please select a symbol' :
+                       newFuturesTrade.quantity <= 0 ? 'Please enter a valid quantity' :
+                       portfolioSummary.cashValue < (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage ? 'Insufficient cash for margin requirement' :
+                       newFuturesTrade.orderType === 'Limit' && newFuturesTrade.entryPrice <= 0 ? 'Please enter entry price for Limit order' :
+                       newFuturesTrade.orderType === 'Stop-Loss' && newFuturesTrade.triggerPrice <= 0 ? 'Please enter trigger price for Stop-Loss order' :
+                       'Please fill in all required fields to enable trade execution'}
+                    </p>
+                  )}
                 </div>
               </div>
             )}
+
+            
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-700">
