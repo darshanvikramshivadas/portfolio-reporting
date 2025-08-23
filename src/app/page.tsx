@@ -1,5 +1,9 @@
 'use client';
-
+//import { Mail } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { toPng } from 'dom-to-image-more';
+import { Canvg } from 'canvg';
+import { sendReportEmail } from '@/lib/actions'; // Import your new server action
 import { useState, useEffect, useRef } from 'react';
 import {
   mockSecurities,
@@ -60,7 +64,7 @@ import {
   YAxis,
   CartesianGrid
 } from 'recharts';
-import html2canvas from 'html2canvas';
+//import html2canvas from 'html2canvas';
 
 
 const mockPerformanceData = [
@@ -515,83 +519,64 @@ export default function PortfolioDashboard() {
 const handleEmailReport = async () => {
     const dashboardElement = dashboardRef.current;
     if (!dashboardElement) {
-        alert("Dashboard element not found. Cannot generate report.");
+        alert("Dashboard element not found.");
         return;
     }
     setIsGeneratingReport(true);
 
-    // Store original SVGs to restore them later
-    const originalSvgs: { parent: HTMLElement; svg: SVGSVGElement }[] = [];
-    
-    try {
-        // --- PRE-PROCESSING STEP: Convert SVGs to Images ---
-        // This is the critical fix for html2canvas failing on charts.
-        const svgs = dashboardElement.querySelectorAll('svg');
-        const promises: Promise<void>[] = [];
+    const originalSvgs = new Map<HTMLElement, SVGSVGElement>();
 
-        svgs.forEach(svg => {
+    try {
+        // --- 1. PRE-PROCESS: Convert SVG charts to static images (Still a best practice) ---
+        const svgElements = dashboardElement.querySelectorAll('svg');
+        const conversionPromises: Promise<void>[] = [];
+        svgElements.forEach((svg) => {
             const parent = svg.parentNode as HTMLElement;
             if (!parent) return;
-
-            // Create a Promise that resolves when the image has loaded
-            const promise = new Promise<void>((resolve) => {
-                const svgString = new XMLSerializer().serializeToString(svg);
-                const svgUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)));
-                
+            originalSvgs.set(parent, svg);
+            const promise = (async () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+                const width = svg.clientWidth || 300;
+                const height = svg.clientHeight || 200;
+                canvas.width = width;
+                canvas.height = height;
+                const v = await Canvg.from(ctx, new XMLSerializer().serializeToString(svg));
+                await v.render();
                 const img = new Image();
-                img.src = svgUrl;
-                img.style.width = svg.clientWidth + 'px';
-                img.style.height = svg.clientHeight + 'px';
-
-                img.onload = () => {
-                    // Replace the SVG with the loaded image
-                    if (svg.parentNode) {
-                        originalSvgs.push({ parent: parent, svg: svg }); // Save for restoration
-                        svg.parentNode.replaceChild(img, svg);
-                    }
-                    resolve();
-                };
-                img.onerror = () => {
-                    // If image fails to load, just resolve to not block the process
-                    resolve();
-                };
-            });
-            promises.push(promise);
+                img.src = canvas.toDataURL('image/png');
+                img.width = width;
+                img.height = height;
+                parent.replaceChild(img, svg);
+            })();
+            conversionPromises.push(promise);
         });
-        
-        // Wait for all images to be loaded and replaced in the DOM
-        await Promise.all(promises);
-        
-        // Now, capture the canvas. It's capturing simple images instead of complex SVGs.
-        const canvas = await html2canvas(dashboardElement, {
-            backgroundColor: '#111827',
-            scale: 2,
-            useCORS: true,
+        await Promise.all(conversionPromises);
+
+        // --- 2. CAPTURE: Use dom-to-image-more to create the screenshot ---
+        const dataUrl = await toPng(dashboardElement, {
+            backgroundColor: '#111827', // The dark background color
+            quality: 0.95, // Set image quality
+            cacheBust: true, // Avoid using cached images
         });
+        const imageBase64 = dataUrl.split(',')[1];
 
-        const image = canvas.toDataURL('image/png', 0.9);
+        // --- 3. TRANSMIT: Call the server action to send the email ---
+        const result = await sendReportEmail(imageBase64);
 
-        // Download the image locally
-        const link = document.createElement('a');
-        link.href = image;
-        link.download = 'portfolio-dashboard-report.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        alert("Report screenshot has been downloaded. Your email client will now open. Please attach the downloaded file.");
-        
-        const subject = encodeURIComponent("Portfolio Performance Report");
-        const body = encodeURIComponent("Please find the attached portfolio report for your review.\n\nBest regards,\nClient Servicing Desk");
-        window.open(`mailto:ayushi.singh.kvs.1903@gmail.com?subject=${subject}&body=${body}`);
+        if (result.success) {
+            alert('Success! The report has been sent to your email.');
+        } else {
+            alert(`Failed to send report: ${result.error}`);
+        }
 
     } catch (error) {
-        console.error("Error generating report:", error);
-        alert("An unexpected error occurred while generating the report. Please check the console for details.");
+        console.error("Error during report generation or sending:", error);
+        alert("A critical error occurred. Please check the console.");
     } finally {
-        // --- POST-PROCESSING STEP: Restore Original SVGs ---
-        // This ensures the charts on the page become interactive again.
-        originalSvgs.forEach(({ parent, svg }) => {
+        // --- 4. RESTORE: Put the interactive charts back ---
+        originalSvgs.forEach((svg, parent) => {
             const img = parent.querySelector('img');
             if (img) {
                 parent.replaceChild(svg, img);
@@ -624,7 +609,7 @@ const handleEmailReport = async () => {
               <button
                 onClick={handleEmailReport}
                 disabled={isGeneratingReport}
-                className="inline-flex items-center px-4 py-2 border border-cyan-500 text-sm font-medium rounded-md text-cyan-400 bg-cyan-900/50 hover:bg-cyan-800/50 disabled:opacity-50 disabled:cursor-wait"
+                className="inline-flex items-center px-4 py-2 border border-cyan-500 text-sm font-medium rounded-md text-cyan-400 bg-cyan-900 bg-opacity-50 hover:bg-cyan-800/50 disabled:opacity-50 disabled:cursor-wait"
               >
                 <Mail className="h-4 w-4 mr-2" />
                 {isGeneratingReport ? 'Generating...' : 'Email Report'}
