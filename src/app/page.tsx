@@ -146,10 +146,14 @@ export default function PortfolioDashboard() {
           const basePrice = position.entryPrice;
           const randomVariation = (Math.random() - 0.5) * 0.01; // ±0.5% variation
           const newPrice = basePrice * (1 + randomVariation);
+          
+          // Calculate proper mark-to-market value
           const newMarkToMarket = position.quantity * newPrice;
+          
+          // Calculate unrealized P&L based on position type
           const newPnL = position.positionType === 'LONG' 
-            ? newMarkToMarket - (position.quantity * position.entryPrice)
-            : (position.quantity * position.entryPrice) - newMarkToMarket;
+            ? (newPrice - position.entryPrice) * position.quantity
+            : (position.entryPrice - newPrice) * position.quantity;
           
           return {
             ...position,
@@ -166,15 +170,35 @@ export default function PortfolioDashboard() {
 
   const recalculatePortfolio = () => {
      const summary = calculatePortfolioSummary(securities, futuresContracts, cashBalances, portfolioSummary.lastUpdated);
-      setPortfolioSummary(summary);
-      const metrics = calculateRiskMetrics(securities);
-      setRiskMetrics(metrics);
+     
+     // Calculate futures-specific metrics from futuresPositions
+     const futuresValue = futuresPositions.reduce((sum, position) => sum + (position.quantity * position.currentPrice), 0);
+     const totalMarginUsed = futuresPositions.reduce((sum, position) => sum + position.marginUsed, 0);
+     const totalUnrealizedPnL = futuresPositions.reduce((sum, position) => {
+       const pnl = position.positionType === 'LONG' 
+         ? (position.currentPrice - position.entryPrice) * position.quantity
+         : (position.entryPrice - position.currentPrice) * position.quantity;
+       return sum + pnl;
+     }, 0);
+     
+     // Update summary with futures position data
+     const updatedSummary = {
+       ...summary,
+       futuresValue,
+       totalMarginUsed,
+       availableMargin: summary.cashValue - totalMarginUsed,
+       unrealizedPnL: totalUnrealizedPnL
+     };
+     
+     setPortfolioSummary(updatedSummary);
+     const metrics = calculateRiskMetrics(securities);
+     setRiskMetrics(metrics);
   };
 
   // Initial portfolio calculation on component mount
   useEffect(() => {
     recalculatePortfolio();
-  },[securities, cashBalances, portfolioSummary.lastUpdated]); 
+  },[securities, cashBalances, futuresPositions, portfolioSummary.lastUpdated]); 
 
   /**
    * Handle adding new trades to the portfolio
@@ -340,7 +364,7 @@ export default function PortfolioDashboard() {
         entryPrice: executionPrice,
         currentPrice: executionPrice,
         markToMarket: contractValue,
-        unrealizedPnL: 0,
+        unrealizedPnL: 0, // Initially 0 since entry price = current price
         marginUsed: initialMargin,
         marginRequirement: initialMargin,
         leverage: newFuturesTrade.leverage,
@@ -469,7 +493,9 @@ export default function PortfolioDashboard() {
     const position = futuresPositions.find(p => p.id === positionId);
     if (position) {
       // Calculate final P&L and margin return
-      const finalPnL = position.unrealizedPnL;
+      const finalPnL = position.positionType === 'LONG' 
+        ? (position.currentPrice - position.entryPrice) * position.quantity
+        : (position.entryPrice - position.currentPrice) * position.quantity;
       const marginReturn = position.marginUsed + finalPnL; // Return initial margin + P&L
       
       // Create a closing trade
@@ -816,42 +842,53 @@ export default function PortfolioDashboard() {
                    </tr>
                  </thead>
                  <tbody className="bg-gray-800 divide-y divide-gray-700">
-                   {futuresPositions.map((position) => (
-                     <tr key={position.id} className="hover:bg-gray-700">
-                       <td className="px-6 py-4 whitespace-nowrap">
-                         <div>
-                           <div className="text-sm font-medium text-white">{position.name}</div>
-                           <div className="text-sm text-gray-400">{position.symbol}</div>
-                         </div>
-                       </td>
-                       <td className="px-6 py-4 whitespace-nowrap">
-                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
-                           {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-                           {position.positionType}
-                         </span>
-                       </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.quantity * position.currentPrice)}</td>
-                       <td className="px-6 py-4 whitespace-nowrap">
-                         <span className={`text-sm font-medium ${getGainLossColor(position.unrealizedPnL)}`}>
-                           {formatCurrency(position.unrealizedPnL)}
-                         </span>
-                       </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed + position.unrealizedPnL)}</td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
-                       <td className="px-6 py-4 whitespace-nowrap">
-                         <button
-                           onClick={() => closeFuturesPosition(position.id)}
-                           className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
-                         >
-                           Close
-                         </button>
-                       </td>
-                     </tr>
-                   ))}
+                   {futuresPositions.map((position) => {
+                     // Calculate proper mark-to-market value
+                     const markToMarketValue = position.quantity * position.currentPrice;
+                     // Calculate unrealized P&L based on position type
+                     const unrealizedPnL = position.positionType === 'LONG' 
+                       ? (position.currentPrice - position.entryPrice) * position.quantity
+                       : (position.entryPrice - position.currentPrice) * position.quantity;
+                     // Calculate remaining margin: Initial Margin + Unrealized P&L
+                     const remainingMargin = position.marginUsed + unrealizedPnL;
+                     
+                     return (
+                       <tr key={position.id} className="hover:bg-gray-700">
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <div>
+                             <div className="text-sm font-medium text-white">{position.name}</div>
+                             <div className="text-sm text-gray-400">{position.symbol}</div>
+                           </div>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPositionTypeColor(position.positionType)}`}>
+                             {position.positionType === 'LONG' ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
+                             {position.positionType}
+                           </span>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{position.quantity}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.entryPrice)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.currentPrice)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(markToMarketValue)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <span className={`text-sm font-medium ${getGainLossColor(unrealizedPnL)}`}>
+                             {formatCurrency(unrealizedPnL)}
+                           </span>
+                         </td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(position.marginUsed)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">{formatCurrency(remainingMargin)}</td>
+                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{position.expirationDate}</td>
+                         <td className="px-6 py-4 whitespace-nowrap">
+                           <button
+                             onClick={() => closeFuturesPosition(position.id)}
+                             className="px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                           >
+                             Close
+                           </button>
+                         </td>
+                       </tr>
+                     );
+                   })}
                  </tbody>
                </table>
              </div>
@@ -1202,7 +1239,7 @@ export default function PortfolioDashboard() {
                 {newFuturesTrade.symbol && newFuturesTrade.quantity > 0 && currentMarketPrice > 0 && (
                   <div className="bg-gray-600 rounded-lg p-4 mb-6">
                     <h4 className="text-lg font-medium text-white mb-4">Margin Calculation</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div>
                         <div className="text-sm text-gray-400">Contract Value</div>
                         <div className="text-lg font-semibold text-white">
@@ -1219,11 +1256,20 @@ export default function PortfolioDashboard() {
                           {formatCurrency((newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage)}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-sm text-gray-400">Margin %</div>
+                        <div className="text-lg font-semibold text-blue-400">
+                          {(100 / newFuturesTrade.leverage).toFixed(1)}%
+                        </div>
+                      </div>
                     </div>
                     <div className="mt-3 pt-3 border-t border-gray-500">
                       <div className="text-sm text-gray-400">Available Cash: {formatCurrency(portfolioSummary.cashValue)}</div>
                       {portfolioSummary.cashValue < (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage && (
                         <div className="text-sm text-red-400 mt-1">⚠️ Insufficient cash for margin requirement</div>
+                      )}
+                      {portfolioSummary.cashValue >= (newFuturesTrade.quantity * currentMarketPrice) / newFuturesTrade.leverage && (
+                        <div className="text-sm text-green-400 mt-1">✅ Sufficient cash available</div>
                       )}
                     </div>
                   </div>
